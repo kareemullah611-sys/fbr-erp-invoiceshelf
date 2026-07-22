@@ -39,6 +39,7 @@ use App\Http\Controllers\Company\General\InvitationResponseController;
 use App\Http\Controllers\Company\General\NotesController;
 use App\Http\Controllers\Company\General\SearchController;
 use App\Http\Controllers\Company\General\SerialNumberController;
+use App\Http\Controllers\Company\Invoice\FbrInvoiceController;
 use App\Http\Controllers\Company\Invoice\InvoicesController;
 use App\Http\Controllers\Company\Invoice\InvoiceTemplatesController;
 use App\Http\Controllers\Company\Item\ItemsController;
@@ -282,6 +283,10 @@ Route::prefix('/v1')->group(function () {
             Route::post('/invoices/{invoice}/convert-to-estimate', [InvoicesController::class, 'convertToEstimate']);
 
             Route::post('/invoices/{invoice}/status', [InvoicesController::class, 'changeStatus']);
+
+            Route::post('/invoices/{invoice}/fbr/validate', [FbrInvoiceController::class, 'validateInvoice']);
+
+            Route::post('/invoices/{invoice}/fbr/submit', [FbrInvoiceController::class, 'submit']);
 
             Route::post('/invoices/delete', [InvoicesController::class, 'delete']);
 

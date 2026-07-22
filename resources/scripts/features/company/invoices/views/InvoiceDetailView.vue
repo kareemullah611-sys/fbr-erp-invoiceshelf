@@ -22,6 +22,16 @@
           {{ $t('invoices.send_invoice') }}
         </BaseButton>
 
+        <BaseButton
+          v-if="canSend"
+          :disabled="isSubmittingToFbr"
+          variant="primary-outline"
+          class="text-sm mr-3"
+          @click="onSubmitToFbr"
+        >
+          {{ isSubmittingToFbr ? 'Submitting to FBR...' : 'Submit to FBR' }}
+        </BaseButton>
+
         <!-- Record Payment -->
         <router-link
           v-if="canCreatePayment"
@@ -199,6 +209,19 @@
     </div>
 
     <!-- PDF Preview -->
+    <div
+      v-if="invoiceData.fbr_submission"
+      class="mb-4 rounded-lg border border-line-default bg-surface px-4 py-3 text-sm text-body"
+    >
+      <div class="font-medium text-heading">FBR Status: {{ invoiceData.fbr_submission.status }}</div>
+      <div v-if="invoiceData.fbr_submission.fbr_invoice_number">
+        FBR Invoice No: {{ invoiceData.fbr_submission.fbr_invoice_number }}
+      </div>
+      <div v-if="invoiceData.fbr_submission.error_message" class="text-red-500">
+        {{ invoiceData.fbr_submission.error_message }}
+      </div>
+    </div>
+
     <BasePdfPreview :src="shareableLink" />
 
     <SendInvoiceModal />
@@ -284,6 +307,7 @@ const canCreateEstimate = computed<boolean>(() => {
 
 const invoiceData = ref<Invoice | null>(null)
 const isMarkAsSent = ref<boolean>(false)
+const isSubmittingToFbr = ref<boolean>(false)
 const isLoading = ref<boolean>(false)
 
 const invoiceList = ref<Invoice[] | null>(null)
@@ -349,6 +373,28 @@ function onSendInvoice(): void {
     id: invoiceData.value!.id,
     data: invoiceData.value,
     refreshData: () => loadInvoice(),
+  })
+}
+
+function onSubmitToFbr(): void {
+  dialogStore.openDialog({
+    title: 'Submit invoice to FBR?',
+    message: 'This will send this invoice data to the configured FBR environment.',
+    yesLabel: t('general.ok'),
+    noLabel: t('general.cancel'),
+    variant: 'primary',
+    hideNoButton: false,
+    size: 'lg',
+  }).then(async (res: boolean) => {
+    if (!res || !invoiceData.value) return
+
+    isSubmittingToFbr.value = true
+    try {
+      await invoiceStore.submitToFbr(invoiceData.value.id)
+      await loadInvoice()
+    } finally {
+      isSubmittingToFbr.value = false
+    }
   })
 }
 

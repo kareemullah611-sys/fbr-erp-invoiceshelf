@@ -51,6 +51,12 @@
         </template>
       </BasePageHeader>
 
+      <div class="mb-6 rounded-lg border border-line-default bg-surface px-4 py-3 text-sm text-body">
+        <span class="font-medium text-heading">FBR Integration:</span>
+        Save this invoice first, then open the invoice detail page and click
+        <span class="font-medium text-heading">Submit to FBR</span>.
+      </div>
+
       <!-- Select Customer & Basic Fields -->
       <InvoiceBasicFields
         :v="v$"

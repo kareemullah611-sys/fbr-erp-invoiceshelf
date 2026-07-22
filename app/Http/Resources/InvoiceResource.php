@@ -57,6 +57,11 @@ class InvoiceResource extends JsonResource
             'sales_tax_type' => $this->sales_tax_type,
             'sales_tax_address_type' => $this->sales_tax_address_type,
             'overdue' => $this->overdue,
+            'fbr_submission' => $this->whenLoaded('latestFbrSubmission', function () {
+                return $this->latestFbrSubmission
+                    ? new FbrInvoiceSubmissionResource($this->latestFbrSubmission)
+                    : null;
+            }),
             'items' => $this->when($this->items()->exists(), function () {
                 return InvoiceItemResource::collection($this->items);
             }),

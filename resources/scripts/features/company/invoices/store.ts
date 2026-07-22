@@ -376,6 +376,31 @@ export const useInvoiceStore = defineStore('invoice', {
       return response
     },
 
+    async submitToFbr(id: number): Promise<unknown> {
+      const notificationStore = useNotificationStore()
+      try {
+        const response = await invoiceService.submitToFbr(id)
+        notificationStore.showNotification({
+          type: response.data.status === 'SUBMITTED' ? 'success' : 'error',
+          message:
+            response.data.status === 'SUBMITTED'
+              ? 'FBR invoice submitted successfully.'
+              : response.data.error_message || 'FBR invoice submission failed.',
+        })
+        return response
+      } catch (error) {
+        const responseData = (error as { response?: { data?: { message?: string, errors?: { fbr?: string[] } } } }).response?.data
+        notificationStore.showNotification({
+          type: 'error',
+          message:
+            responseData?.errors?.fbr?.[0] ||
+            responseData?.message ||
+            'FBR invoice submission failed.',
+        })
+        throw error
+      }
+    },
+
     async getNextNumber(
       params?: Record<string, unknown>,
       setState = false,

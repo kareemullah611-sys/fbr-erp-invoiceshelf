@@ -88,6 +88,7 @@ export interface Invoice {
   sales_tax_type: string | null
   sales_tax_address_type: string | null
   overdue: boolean | null
+  fbr_submission?: FbrInvoiceSubmission | null
   items?: InvoiceItem[]
   customer?: Customer
   creator?: User
@@ -95,6 +96,16 @@ export interface Invoice {
   fields?: CustomFieldValue[]
   company?: Company
   currency?: Currency
+}
+
+export interface FbrInvoiceSubmission {
+  id: number
+  environment: string
+  status: 'SUBMITTED' | 'FAILED'
+  fbr_invoice_number: string | null
+  response_payload: Record<string, unknown> | null
+  error_message: string | null
+  submitted_at: string | null
 }
 
 export interface CreateInvoicePayload {

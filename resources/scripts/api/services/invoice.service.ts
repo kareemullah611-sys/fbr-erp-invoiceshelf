@@ -1,6 +1,6 @@
 import { client } from '../client'
 import { API } from '../endpoints'
-import type { Invoice, CreateInvoicePayload } from '@/scripts/types/domain/invoice'
+import type { Invoice, CreateInvoicePayload, FbrInvoiceSubmission } from '@/scripts/types/domain/invoice'
 import type {
   ApiResponse,
   PaginatedResponse,
@@ -110,6 +110,16 @@ export const invoiceService = {
 
   async changeStatus(payload: InvoiceStatusPayload): Promise<ApiResponse<Invoice>> {
     const { data } = await client.post(`${API.INVOICES}/${payload.id}/status`, payload)
+    return data
+  },
+
+  async validateWithFbr(id: number): Promise<ApiResponse<FbrInvoiceSubmission>> {
+    const { data } = await client.post(`${API.INVOICES}/${id}/fbr/validate`)
+    return data
+  },
+
+  async submitToFbr(id: number): Promise<ApiResponse<FbrInvoiceSubmission>> {
+    const { data } = await client.post(`${API.INVOICES}/${id}/fbr/submit`)
     return data
   },
 

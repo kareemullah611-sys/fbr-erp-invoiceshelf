@@ -35,7 +35,7 @@ class InvoicesController extends Controller
 
         $invoices = Invoice::whereCompany()
             ->applyFilters($request->all())
-            ->with('customer')
+            ->with(['customer', 'latestFbrSubmission'])
             ->latest()
             ->paginateData($limit);
 
@@ -74,6 +74,8 @@ class InvoicesController extends Controller
     public function show(Request $request, Invoice $invoice)
     {
         $this->authorize('view', $invoice);
+
+        $invoice->load('latestFbrSubmission');
 
         return new InvoiceResource($invoice);
     }
