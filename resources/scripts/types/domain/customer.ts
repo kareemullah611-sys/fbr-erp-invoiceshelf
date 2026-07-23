@@ -33,6 +33,12 @@ export interface Customer {
   base_due_amount: number | null
   prefix: string | null
   tax_id: string | null
+  fbr_ntn: string | null
+  fbr_cnic: string | null
+  fbr_registration_type: string | null
+  fbr_sale_channel: string | null
+  fbr_payment_mode: string | null
+  fbr_payment_terms: string | null
   billing?: Address
   shipping?: Address
   fields?: CustomFieldValue[]
@@ -49,9 +55,16 @@ export interface CreateCustomerPayload {
   confirm_password?: string
   currency_id: number | null
   website?: string | null
+  tax_id?: string | null
   billing?: Partial<Address>
   shipping?: Partial<Address>
   enable_portal?: boolean
+  fbr_ntn?: string | null
+  fbr_cnic?: string | null
+  fbr_registration_type?: string | null
+  fbr_sale_channel?: string | null
+  fbr_payment_mode?: string | null
+  fbr_payment_terms?: string | null
   customFields?: CustomFieldValue[]
   fields?: CustomFieldValue[]
 }

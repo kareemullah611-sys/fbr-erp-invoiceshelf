@@ -71,6 +71,12 @@ test('customer stats', function () {
 
 test('create customer', function () {
     $customer = Customer::factory()->raw([
+        'fbr_ntn' => '1234567',
+        'fbr_cnic' => '4210112345671',
+        'fbr_registration_type' => 'Registered',
+        'fbr_sale_channel' => 'Live Auto',
+        'fbr_payment_mode' => 'Bank Transfer',
+        'fbr_payment_terms' => 'Net 15',
         'shipping' => [
             'name' => 'newName',
             'address_street_1' => 'address',
@@ -87,6 +93,12 @@ test('create customer', function () {
     $this->assertDatabaseHas('customers', [
         'name' => $customer['name'],
         'email' => $customer['email'],
+        'fbr_ntn' => '1234567',
+        'fbr_cnic' => '4210112345671',
+        'fbr_registration_type' => 'Registered',
+        'fbr_sale_channel' => 'Live Auto',
+        'fbr_payment_mode' => 'Bank Transfer',
+        'fbr_payment_terms' => 'Net 15',
     ]);
 });
 

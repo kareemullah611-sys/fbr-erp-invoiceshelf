@@ -334,6 +334,90 @@ async function submitCustomerData(): Promise<void> {
 
         <BaseDivider class="mb-5 md:mb-8" />
 
+        <!-- FBR Details -->
+        <div class="grid grid-cols-5 gap-4 mb-8">
+          <h6 class="col-span-5 text-lg font-semibold text-left lg:col-span-1">
+            {{ $t('customers.fbr_details') }}
+          </h6>
+
+          <BaseInputGrid class="col-span-5 lg:col-span-4">
+            <BaseInputGroup
+              :label="$t('customers.fbr_registration_type')"
+              :content-loading="isFetchingInitialData"
+            >
+              <BaseMultiselect
+                v-model="customerStore.currentCustomer.fbr_registration_type"
+                :options="['Registered', 'Unregistered']"
+                :content-loading="isFetchingInitialData"
+                :can-deselect="false"
+                class="w-full"
+              />
+            </BaseInputGroup>
+
+            <BaseInputGroup
+              :label="$t('customers.fbr_ntn')"
+              :content-loading="isFetchingInitialData"
+            >
+              <BaseInput
+                v-model="customerStore.currentCustomer.fbr_ntn"
+                :content-loading="isFetchingInitialData"
+                type="text"
+                name="fbr_ntn"
+              />
+            </BaseInputGroup>
+
+            <BaseInputGroup
+              :label="$t('customers.fbr_cnic')"
+              :content-loading="isFetchingInitialData"
+            >
+              <BaseInput
+                v-model="customerStore.currentCustomer.fbr_cnic"
+                :content-loading="isFetchingInitialData"
+                type="text"
+                name="fbr_cnic"
+              />
+            </BaseInputGroup>
+
+            <BaseInputGroup
+              :label="$t('customers.fbr_sale_channel')"
+              :content-loading="isFetchingInitialData"
+            >
+              <BaseInput
+                v-model="customerStore.currentCustomer.fbr_sale_channel"
+                :content-loading="isFetchingInitialData"
+                type="text"
+                name="fbr_sale_channel"
+              />
+            </BaseInputGroup>
+
+            <BaseInputGroup
+              :label="$t('customers.fbr_payment_mode')"
+              :content-loading="isFetchingInitialData"
+            >
+              <BaseInput
+                v-model="customerStore.currentCustomer.fbr_payment_mode"
+                :content-loading="isFetchingInitialData"
+                type="text"
+                name="fbr_payment_mode"
+              />
+            </BaseInputGroup>
+
+            <BaseInputGroup
+              :label="$t('customers.fbr_payment_terms')"
+              :content-loading="isFetchingInitialData"
+            >
+              <BaseInput
+                v-model="customerStore.currentCustomer.fbr_payment_terms"
+                :content-loading="isFetchingInitialData"
+                type="text"
+                name="fbr_payment_terms"
+              />
+            </BaseInputGroup>
+          </BaseInputGrid>
+        </div>
+
+        <BaseDivider class="mb-5 md:mb-8" />
+
         <!-- Portal Access -->
         <div class="grid grid-cols-5 gap-4 mb-8">
           <h6 class="col-span-5 text-lg font-semibold text-left lg:col-span-1">

@@ -330,6 +330,63 @@ function closeCustomerModal(): void {
                   class="mt-1 md:mt-0"
                 />
               </BaseInputGroup>
+
+              <h6 class="text-base font-semibold text-heading">
+                {{ $t('customers.fbr_details') }}
+              </h6>
+
+              <BaseInputGroup :label="$t('customers.fbr_registration_type')">
+                <BaseMultiselect
+                  v-model="customerStore.currentCustomer.fbr_registration_type"
+                  :options="['Registered', 'Unregistered']"
+                  :can-deselect="false"
+                  class="mt-1 md:mt-0"
+                />
+              </BaseInputGroup>
+
+              <BaseInputGrid>
+                <BaseInputGroup :label="$t('customers.fbr_ntn')">
+                  <BaseInput
+                    v-model="customerStore.currentCustomer.fbr_ntn"
+                    type="text"
+                    class="mt-1 md:mt-0"
+                  />
+                </BaseInputGroup>
+
+                <BaseInputGroup :label="$t('customers.fbr_cnic')">
+                  <BaseInput
+                    v-model="customerStore.currentCustomer.fbr_cnic"
+                    type="text"
+                    class="mt-1 md:mt-0"
+                  />
+                </BaseInputGroup>
+              </BaseInputGrid>
+
+              <BaseInputGrid>
+                <BaseInputGroup :label="$t('customers.fbr_sale_channel')">
+                  <BaseInput
+                    v-model="customerStore.currentCustomer.fbr_sale_channel"
+                    type="text"
+                    class="mt-1 md:mt-0"
+                  />
+                </BaseInputGroup>
+
+                <BaseInputGroup :label="$t('customers.fbr_payment_mode')">
+                  <BaseInput
+                    v-model="customerStore.currentCustomer.fbr_payment_mode"
+                    type="text"
+                    class="mt-1 md:mt-0"
+                  />
+                </BaseInputGroup>
+              </BaseInputGrid>
+
+              <BaseInputGroup :label="$t('customers.fbr_payment_terms')">
+                <BaseInput
+                  v-model="customerStore.currentCustomer.fbr_payment_terms"
+                  type="text"
+                  class="mt-1 md:mt-0"
+                />
+              </BaseInputGroup>
             </BaseInputGrid>
           </BaseTab>
 

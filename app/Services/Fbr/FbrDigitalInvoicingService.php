@@ -67,11 +67,11 @@ class FbrDigitalInvoicingService
             'sellerBusinessName' => config('fbr.seller_business_name') ?: $invoice->company->name,
             'sellerProvince' => config('fbr.seller_province'),
             'sellerAddress' => config('fbr.seller_address'),
-            'buyerNTNCNIC' => $invoice->customer?->tax_id ?: null,
+            'buyerNTNCNIC' => $invoice->customer?->fbr_ntn ?: $invoice->customer?->fbr_cnic ?: $invoice->customer?->tax_id ?: null,
             'buyerBusinessName' => $invoice->customer?->company_name ?: $invoice->customer?->name,
             'buyerProvince' => $buyerProvince,
             'buyerAddress' => $buyerAddressText ?: null,
-            'buyerRegistrationType' => config('fbr.default_buyer_registration_type'),
+            'buyerRegistrationType' => $invoice->customer?->fbr_registration_type ?: config('fbr.default_buyer_registration_type'),
             'invoiceRefNo' => $invoice->invoice_number,
             'items' => $invoice->items->map(fn ($item) => $this->itemPayload($item))->values()->all(),
         ];

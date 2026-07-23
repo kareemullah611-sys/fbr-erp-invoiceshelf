@@ -40,6 +40,12 @@ export interface CustomerForm {
   website: string | null
   prefix?: string | null
   tax_id?: string | null
+  fbr_ntn?: string | null
+  fbr_cnic?: string | null
+  fbr_registration_type?: string | null
+  fbr_sale_channel?: string | null
+  fbr_payment_mode?: string | null
+  fbr_payment_terms?: string | null
   billing: CustomerFormAddress
   shipping: CustomerFormAddress
   customFields: unknown[]
@@ -74,6 +80,13 @@ function createCustomerStub(): CustomerForm {
     confirm_password: '',
     currency_id: null,
     website: null,
+    tax_id: null,
+    fbr_ntn: null,
+    fbr_cnic: null,
+    fbr_registration_type: 'Unregistered',
+    fbr_sale_channel: null,
+    fbr_payment_mode: null,
+    fbr_payment_terms: null,
     billing: createAddressStub(),
     shipping: createAddressStub(),
     customFields: [],

@@ -37,6 +37,12 @@ class CustomerResource extends JsonResource
             'base_due_amount' => $this->base_due_amount,
             'prefix' => $this->prefix,
             'tax_id' => $this->tax_id,
+            'fbr_ntn' => $this->fbr_ntn,
+            'fbr_cnic' => $this->fbr_cnic,
+            'fbr_registration_type' => $this->fbr_registration_type,
+            'fbr_sale_channel' => $this->fbr_sale_channel,
+            'fbr_payment_mode' => $this->fbr_payment_mode,
+            'fbr_payment_terms' => $this->fbr_payment_terms,
             'billing' => $this->when($this->billingAddress()->exists(), function () {
                 return new AddressResource($this->billingAddress);
             }),

@@ -44,7 +44,9 @@ test('submits invoice payload to FBR and records response', function () {
 
     $customer = Customer::factory()->create([
         'company_id' => $this->company->id,
-        'tax_id' => '1000000000000',
+        'tax_id' => 'legacy-tax-id',
+        'fbr_ntn' => '1000000000000',
+        'fbr_registration_type' => 'Registered',
         'company_name' => 'Buyer Pvt Ltd',
     ]);
 
@@ -102,6 +104,7 @@ test('submits invoice payload to FBR and records response', function () {
         return $request->hasHeader('Authorization', 'Bearer sandbox-token')
             && $request['sellerNTNCNIC'] === '1234567'
             && $request['buyerNTNCNIC'] === '1000000000000'
+            && $request['buyerRegistrationType'] === 'Registered'
             && $request['invoiceRefNo'] === 'INV-001'
             && $request['scenarioId'] === 'SN001'
             && $request['items'][0]['rate'] === '18%'

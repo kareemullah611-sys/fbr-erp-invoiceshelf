@@ -53,6 +53,36 @@ class CustomerRequest extends FormRequest
             'tax_id' => [
                 'nullable',
             ],
+            'fbr_ntn' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+            'fbr_cnic' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+            'fbr_registration_type' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+            'fbr_sale_channel' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+            'fbr_payment_mode' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+            'fbr_payment_terms' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
             'enable_portal' => [
                 'boolean',
             ],
@@ -137,6 +167,12 @@ class CustomerRequest extends FormRequest
                 'phone',
                 'prefix',
                 'tax_id',
+                'fbr_ntn',
+                'fbr_cnic',
+                'fbr_registration_type',
+                'fbr_sale_channel',
+                'fbr_payment_mode',
+                'fbr_payment_terms',
                 'company_name',
                 'contact_name',
                 'website',
