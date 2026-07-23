@@ -30,6 +30,16 @@ export interface CreateItemPayload {
   price: number
   unit_id?: number | null
   taxes?: Array<{ tax_type_id: number }>
+  fbr_hs_code?: string | null
+  fbr_uom?: string | null
+  fbr_sale_type?: string | null
+  fbr_sro_no?: string | null
+  fbr_sro_item_no?: string | null
+  fbr_fixed_notified_value?: number | null
+  fbr_sales_tax_withheld?: number | null
+  fbr_further_tax?: number | null
+  fbr_extra_tax?: number | null
+  fbr_fed_payable?: number | null
 }
 
 export interface CreateUnitPayload {

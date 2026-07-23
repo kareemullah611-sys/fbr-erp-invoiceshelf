@@ -25,7 +25,7 @@ class FbrDigitalInvoicingService
 
     private function send(Invoice $invoice, string $action): FbrInvoiceSubmission
     {
-        $invoice->loadMissing(['company', 'customer.billingAddress', 'items.taxes']);
+        $invoice->loadMissing(['company', 'customer.billingAddress', 'items.item', 'items.taxes']);
 
         $environment = $this->environment();
         $payload = $this->payload($invoice, $environment);
@@ -42,7 +42,7 @@ class FbrDigitalInvoicingService
 
     public function payload(Invoice $invoice, string $environment = 'sandbox'): array
     {
-        $invoice->loadMissing(['company', 'customer.billingAddress', 'items.taxes']);
+        $invoice->loadMissing(['company', 'customer.billingAddress', 'items.item', 'items.taxes']);
 
         $this->guardConfigured($environment);
 
@@ -90,17 +90,26 @@ class FbrDigitalInvoicingService
         $tax = $item->taxes->first();
         $rate = $tax?->percent !== null ? rtrim(rtrim(number_format($tax->percent, 2, '.', ''), '0'), '.').'%' : null;
 
-        return [
-            'hsCode' => config('fbr.default_hs_code'),
+        $payload = [
+            'hsCode' => $item->fbr_hs_code ?: $item->item?->fbr_hs_code ?: config('fbr.default_hs_code'),
             'productDescription' => $item->name,
             'rate' => $rate,
-            'uoM' => $item->unit_name ?: config('fbr.default_uom'),
+            'uoM' => $item->fbr_uom ?: $item->unit_name ?: $item->item?->fbr_uom ?: config('fbr.default_uom'),
             'quantity' => (float) $item->quantity,
             'totalValues' => $this->money($item->total + $item->tax),
             'valueSalesExcludingST' => $this->money($item->total),
             'salesTaxApplicable' => $this->money($item->tax),
-            'saleType' => config('fbr.default_sale_type'),
+            'saleType' => $item->fbr_sale_type ?: $item->item?->fbr_sale_type ?: config('fbr.default_sale_type'),
+            'fixedNotifiedValueOrRetailPrice' => $this->optionalMoney($item->fbr_fixed_notified_value ?? $item->item?->fbr_fixed_notified_value),
+            'salesTaxWithheldAtSource' => $this->optionalMoney($item->fbr_sales_tax_withheld ?? $item->item?->fbr_sales_tax_withheld),
+            'furtherTax' => $this->optionalMoney($item->fbr_further_tax ?? $item->item?->fbr_further_tax),
+            'extraTax' => $this->optionalMoney($item->fbr_extra_tax ?? $item->item?->fbr_extra_tax),
+            'fedPayable' => $this->optionalMoney($item->fbr_fed_payable ?? $item->item?->fbr_fed_payable),
+            'sroScheduleNo' => $item->fbr_sro_no ?: $item->item?->fbr_sro_no ?: null,
+            'sroItemSerialNo' => $item->fbr_sro_item_no ?: $item->item?->fbr_sro_item_no ?: null,
         ];
+
+        return array_filter($payload, fn ($value) => $value !== null);
     }
 
     private function storeSubmission(Invoice $invoice, string $environment, array $payload, Response $response): FbrInvoiceSubmission
@@ -162,7 +171,7 @@ class FbrDigitalInvoicingService
         ])->filter(fn ($label, $key) => blank($payload[$key]))->values()->all();
 
         foreach ($payload['items'] as $index => $item) {
-            foreach (['rate' => 'item tax rate', 'uoM' => 'item unit/UOM'] as $key => $label) {
+            foreach (['hsCode' => 'item HS code', 'rate' => 'item tax rate', 'uoM' => 'item unit/UOM', 'saleType' => 'item sale type'] as $key => $label) {
                 if (blank($item[$key])) {
                     $missing[] = 'Line '.($index + 1).' '.$label;
                 }
@@ -189,5 +198,10 @@ class FbrDigitalInvoicingService
     private function money(int $amount): float
     {
         return round($amount / 100, 2);
+    }
+
+    private function optionalMoney(?int $amount): ?float
+    {
+        return $amount === null ? null : $this->money($amount);
     }
 }

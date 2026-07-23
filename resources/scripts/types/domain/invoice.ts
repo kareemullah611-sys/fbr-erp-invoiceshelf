@@ -34,6 +34,16 @@ export interface InvoiceItem {
   total: number
   invoice_id: number | null
   item_id: number | null
+  fbr_hs_code: string | null
+  fbr_uom: string | null
+  fbr_sale_type: string | null
+  fbr_sro_no: string | null
+  fbr_sro_item_no: string | null
+  fbr_fixed_notified_value: number | null
+  fbr_sales_tax_withheld: number | null
+  fbr_further_tax: number | null
+  fbr_extra_tax: number | null
+  fbr_fed_payable: number | null
   company_id: number
   base_price: number
   exchange_rate: number
@@ -143,4 +153,14 @@ export interface CreateInvoiceItemPayload {
   total?: number
   taxes?: Partial<Tax>[]
   unit_name?: string | null
+  fbr_hs_code?: string | null
+  fbr_uom?: string | null
+  fbr_sale_type?: string | null
+  fbr_sro_no?: string | null
+  fbr_sro_item_no?: string | null
+  fbr_fixed_notified_value?: number | null
+  fbr_sales_tax_withheld?: number | null
+  fbr_further_tax?: number | null
+  fbr_extra_tax?: number | null
+  fbr_fed_payable?: number | null
 }

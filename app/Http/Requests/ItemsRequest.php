@@ -32,6 +32,56 @@ class ItemsRequest extends FormRequest
             'description' => [
                 'nullable',
             ],
+            'fbr_hs_code' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'fbr_uom' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'fbr_sale_type' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'fbr_sro_no' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'fbr_sro_item_no' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'fbr_fixed_notified_value' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+            'fbr_sales_tax_withheld' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+            'fbr_further_tax' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+            'fbr_extra_tax' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+            'fbr_fed_payable' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
         ];
     }
 }

@@ -80,6 +80,16 @@ test('submits invoice payload to FBR and records response', function () {
         'total' => 100000,
         'tax' => 18000,
         'unit_name' => null,
+        'fbr_hs_code' => '4901.9900',
+        'fbr_uom' => 'Numbers, pieces, units',
+        'fbr_sale_type' => 'Goods at standard rate (default)',
+        'fbr_sro_no' => 'SRO-001',
+        'fbr_sro_item_no' => '1',
+        'fbr_fixed_notified_value' => 125000,
+        'fbr_sales_tax_withheld' => 1000,
+        'fbr_further_tax' => 2000,
+        'fbr_extra_tax' => 3000,
+        'fbr_fed_payable' => 4000,
     ]);
 
     $taxType = TaxType::factory()->create([
@@ -107,9 +117,19 @@ test('submits invoice payload to FBR and records response', function () {
             && $request['buyerRegistrationType'] === 'Registered'
             && $request['invoiceRefNo'] === 'INV-001'
             && $request['scenarioId'] === 'SN001'
+            && $request['items'][0]['hsCode'] === '4901.9900'
+            && $request['items'][0]['uoM'] === 'Numbers, pieces, units'
+            && $request['items'][0]['saleType'] === 'Goods at standard rate (default)'
             && $request['items'][0]['rate'] === '18%'
             && $request['items'][0]['valueSalesExcludingST'] === 1000.00
-            && $request['items'][0]['salesTaxApplicable'] === 180.00;
+            && $request['items'][0]['salesTaxApplicable'] === 180.00
+            && $request['items'][0]['fixedNotifiedValueOrRetailPrice'] === 1250.00
+            && $request['items'][0]['salesTaxWithheldAtSource'] === 10.00
+            && $request['items'][0]['furtherTax'] === 20.00
+            && $request['items'][0]['extraTax'] === 30.00
+            && $request['items'][0]['fedPayable'] === 40.00
+            && $request['items'][0]['sroScheduleNo'] === 'SRO-001'
+            && $request['items'][0]['sroItemSerialNo'] === '1';
     });
 
     $this->assertDatabaseHas('fbr_invoice_submissions', [

@@ -34,6 +34,16 @@ test('get items', function () {
 
 test('create item', function () {
     $item = Item::factory()->raw([
+        'fbr_hs_code' => '4901.9900',
+        'fbr_uom' => 'Numbers, pieces, units',
+        'fbr_sale_type' => 'Goods at standard rate (default)',
+        'fbr_sro_no' => 'SRO-001',
+        'fbr_sro_item_no' => '1',
+        'fbr_fixed_notified_value' => 125000,
+        'fbr_sales_tax_withheld' => 1000,
+        'fbr_further_tax' => 2000,
+        'fbr_extra_tax' => 3000,
+        'fbr_fed_payable' => 4000,
         'taxes' => [
             Tax::factory()->raw(),
             Tax::factory()->raw(),
@@ -47,6 +57,16 @@ test('create item', function () {
         'description' => $item['description'],
         'price' => $item['price'],
         'company_id' => $item['company_id'],
+        'fbr_hs_code' => '4901.9900',
+        'fbr_uom' => 'Numbers, pieces, units',
+        'fbr_sale_type' => 'Goods at standard rate (default)',
+        'fbr_sro_no' => 'SRO-001',
+        'fbr_sro_item_no' => '1',
+        'fbr_fixed_notified_value' => 125000,
+        'fbr_sales_tax_withheld' => 1000,
+        'fbr_further_tax' => 2000,
+        'fbr_extra_tax' => 3000,
+        'fbr_fed_payable' => 4000,
     ]);
 
     $this->assertDatabaseHas('taxes', [

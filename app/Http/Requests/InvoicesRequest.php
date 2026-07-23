@@ -86,6 +86,56 @@ class InvoicesRequest extends FormRequest
                 'numeric',
                 'required',
             ],
+            'items.*.fbr_hs_code' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'items.*.fbr_uom' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'items.*.fbr_sale_type' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'items.*.fbr_sro_no' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'items.*.fbr_sro_item_no' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'items.*.fbr_fixed_notified_value' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+            'items.*.fbr_sales_tax_withheld' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+            'items.*.fbr_further_tax' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+            'items.*.fbr_extra_tax' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+            'items.*.fbr_fed_payable' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
         ];
 
         $companyCurrency = CompanySetting::getSetting('currency', $this->header('company'));

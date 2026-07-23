@@ -56,6 +56,16 @@ function createInvoiceItemStub(): DocumentItem {
     tax: 0,
     taxes: [createTaxStub()],
     unit_name: null,
+    fbr_hs_code: null,
+    fbr_uom: null,
+    fbr_sale_type: null,
+    fbr_sro_no: null,
+    fbr_sro_item_no: null,
+    fbr_fixed_notified_value: null,
+    fbr_sales_tax_withheld: null,
+    fbr_further_tax: null,
+    fbr_extra_tax: null,
+    fbr_fed_payable: null,
   }
 }
 

@@ -22,6 +22,16 @@ export interface ItemForm {
   unit: Unit | null
   taxes: Tax[]
   tax_per_item?: boolean | number | string
+  fbr_hs_code: string | null
+  fbr_uom: string | null
+  fbr_sale_type: string | null
+  fbr_sro_no: string | null
+  fbr_sro_item_no: string | null
+  fbr_fixed_notified_value: number | null
+  fbr_sales_tax_withheld: number | null
+  fbr_further_tax: number | null
+  fbr_extra_tax: number | null
+  fbr_fed_payable: number | null
 }
 
 export interface ItemUnitForm {
@@ -38,6 +48,16 @@ function createItemStub(): ItemForm {
     unit: null,
     taxes: [],
     tax_per_item: false,
+    fbr_hs_code: null,
+    fbr_uom: null,
+    fbr_sale_type: null,
+    fbr_sro_no: null,
+    fbr_sro_item_no: null,
+    fbr_fixed_notified_value: null,
+    fbr_sales_tax_withheld: null,
+    fbr_further_tax: null,
+    fbr_extra_tax: null,
+    fbr_fed_payable: null,
   }
 }
 

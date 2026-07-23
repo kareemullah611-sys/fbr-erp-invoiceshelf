@@ -390,10 +390,26 @@ function onSelectItem(itm: Record<string, unknown>): void {
   props.store.$patch((state: Record<string, unknown>) => {
     const form = state[props.storeProp] as DocumentFormData
     const item = form.items[props.index]
+    const fbrFields = [
+      'fbr_hs_code',
+      'fbr_uom',
+      'fbr_sale_type',
+      'fbr_sro_no',
+      'fbr_sro_item_no',
+      'fbr_fixed_notified_value',
+      'fbr_sales_tax_withheld',
+      'fbr_further_tax',
+      'fbr_extra_tax',
+      'fbr_fed_payable',
+    ]
     item.name = itm.name as string
     item.price = itm.price as number
     item.item_id = itm.id as number
     item.description = (itm.description as string | null) ?? null
+
+    fbrFields.forEach((field) => {
+      item[field] = (itm[field] as string | number | null | undefined) ?? null
+    })
 
     if (itm.unit) {
       item.unit_name = (itm.unit as Record<string, string>).name

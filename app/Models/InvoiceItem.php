@@ -29,6 +29,11 @@ class InvoiceItem extends Model
             'quantity' => 'float',
             'discount_val' => 'integer',
             'tax' => 'integer',
+            'fbr_fixed_notified_value' => 'integer',
+            'fbr_sales_tax_withheld' => 'integer',
+            'fbr_further_tax' => 'integer',
+            'fbr_extra_tax' => 'integer',
+            'fbr_fed_payable' => 'integer',
         ];
     }
 

@@ -26,6 +26,11 @@ class Item extends Model
     {
         return [
             'price' => 'integer',
+            'fbr_fixed_notified_value' => 'integer',
+            'fbr_sales_tax_withheld' => 'integer',
+            'fbr_further_tax' => 'integer',
+            'fbr_extra_tax' => 'integer',
+            'fbr_fed_payable' => 'integer',
         ];
     }
 

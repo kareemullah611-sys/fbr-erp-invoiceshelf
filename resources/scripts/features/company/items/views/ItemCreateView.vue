@@ -56,6 +56,41 @@ const price = computed<number>({
   },
 })
 
+const fbrFixedNotifiedValue = computed<number>({
+  get: () => (itemStore.currentItem.fbr_fixed_notified_value ?? 0) / 100,
+  set: (value: number) => {
+    itemStore.currentItem.fbr_fixed_notified_value = value ? Math.round(value * 100) : null
+  },
+})
+
+const fbrSalesTaxWithheld = computed<number>({
+  get: () => (itemStore.currentItem.fbr_sales_tax_withheld ?? 0) / 100,
+  set: (value: number) => {
+    itemStore.currentItem.fbr_sales_tax_withheld = value ? Math.round(value * 100) : null
+  },
+})
+
+const fbrFurtherTax = computed<number>({
+  get: () => (itemStore.currentItem.fbr_further_tax ?? 0) / 100,
+  set: (value: number) => {
+    itemStore.currentItem.fbr_further_tax = value ? Math.round(value * 100) : null
+  },
+})
+
+const fbrExtraTax = computed<number>({
+  get: () => (itemStore.currentItem.fbr_extra_tax ?? 0) / 100,
+  set: (value: number) => {
+    itemStore.currentItem.fbr_extra_tax = value ? Math.round(value * 100) : null
+  },
+})
+
+const fbrFedPayable = computed<number>({
+  get: () => (itemStore.currentItem.fbr_fed_payable ?? 0) / 100,
+  set: (value: number) => {
+    itemStore.currentItem.fbr_fed_payable = value ? Math.round(value * 100) : null
+  },
+})
+
 const taxes = computed({
   get: () =>
     itemStore.currentItem.taxes?.map((tax) => {
@@ -308,6 +343,100 @@ async function submitItem(): Promise<void> {
               @input="v$.currentItem.description.$touch()"
             />
           </BaseInputGroup>
+
+          <div class="border border-line-light rounded-md p-5">
+            <div class="mb-4">
+              <h3 class="text-lg font-semibold text-heading">
+                FBR Digital Invoice Details
+              </h3>
+              <p class="text-sm text-muted">
+                Used as defaults when this item is added to a sale invoice.
+              </p>
+            </div>
+
+            <BaseInputGrid layout="one-column">
+              <BaseInputGroup label="HS Code" :content-loading="isFetchingInitialData">
+                <BaseInput
+                  v-model="itemStore.currentItem.fbr_hs_code"
+                  :content-loading="isFetchingInitialData"
+                  name="fbr_hs_code"
+                />
+              </BaseInputGroup>
+
+              <BaseInputGroup label="FBR UOM" :content-loading="isFetchingInitialData">
+                <BaseInput
+                  v-model="itemStore.currentItem.fbr_uom"
+                  :content-loading="isFetchingInitialData"
+                  name="fbr_uom"
+                />
+              </BaseInputGroup>
+
+              <BaseInputGroup label="Sale Type" :content-loading="isFetchingInitialData">
+                <BaseInput
+                  v-model="itemStore.currentItem.fbr_sale_type"
+                  :content-loading="isFetchingInitialData"
+                  name="fbr_sale_type"
+                />
+              </BaseInputGroup>
+
+              <BaseInputGroup label="SRO No" :content-loading="isFetchingInitialData">
+                <BaseInput
+                  v-model="itemStore.currentItem.fbr_sro_no"
+                  :content-loading="isFetchingInitialData"
+                  name="fbr_sro_no"
+                />
+              </BaseInputGroup>
+
+              <BaseInputGroup label="SRO Item No" :content-loading="isFetchingInitialData">
+                <BaseInput
+                  v-model="itemStore.currentItem.fbr_sro_item_no"
+                  :content-loading="isFetchingInitialData"
+                  name="fbr_sro_item_no"
+                />
+              </BaseInputGroup>
+
+              <BaseInputGroup
+                label="Fixed Notified Value / Retail Price"
+                :content-loading="isFetchingInitialData"
+              >
+                <BaseMoney
+                  v-model="fbrFixedNotifiedValue"
+                  :content-loading="isFetchingInitialData"
+                />
+              </BaseInputGroup>
+
+              <BaseInputGroup
+                label="Sales Tax Withheld at Source"
+                :content-loading="isFetchingInitialData"
+              >
+                <BaseMoney
+                  v-model="fbrSalesTaxWithheld"
+                  :content-loading="isFetchingInitialData"
+                />
+              </BaseInputGroup>
+
+              <BaseInputGroup label="Further Tax" :content-loading="isFetchingInitialData">
+                <BaseMoney
+                  v-model="fbrFurtherTax"
+                  :content-loading="isFetchingInitialData"
+                />
+              </BaseInputGroup>
+
+              <BaseInputGroup label="Extra Tax" :content-loading="isFetchingInitialData">
+                <BaseMoney
+                  v-model="fbrExtraTax"
+                  :content-loading="isFetchingInitialData"
+                />
+              </BaseInputGroup>
+
+              <BaseInputGroup label="FED Payable" :content-loading="isFetchingInitialData">
+                <BaseMoney
+                  v-model="fbrFedPayable"
+                  :content-loading="isFetchingInitialData"
+                />
+              </BaseInputGroup>
+            </BaseInputGrid>
+          </div>
 
           <div>
             <BaseButton

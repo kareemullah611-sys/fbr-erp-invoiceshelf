@@ -18,6 +18,16 @@ export interface Item {
   company_id: number
   creator_id: number
   currency_id: number | null
+  fbr_hs_code: string | null
+  fbr_uom: string | null
+  fbr_sale_type: string | null
+  fbr_sro_no: string | null
+  fbr_sro_item_no: string | null
+  fbr_fixed_notified_value: number | null
+  fbr_sales_tax_withheld: number | null
+  fbr_further_tax: number | null
+  fbr_extra_tax: number | null
+  fbr_fed_payable: number | null
   created_at: string
   updated_at: string
   tax_per_item: string | null
