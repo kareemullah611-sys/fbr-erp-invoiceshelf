@@ -411,6 +411,36 @@ export const useInvoiceStore = defineStore('invoice', {
       }
     },
 
+    async validateWithFbr(id: number): Promise<unknown> {
+      const notificationStore = useNotificationStore()
+      try {
+        const response = await invoiceService.validateWithFbr(id)
+        notificationStore.showNotification({
+          type: response.data.status === 'VALIDATED' ? 'success' : 'error',
+          message:
+            response.data.status === 'VALIDATED'
+              ? 'FBR sandbox validation passed.'
+              : response.data.error_message || 'FBR validation failed.',
+        })
+        return response
+      } catch (error) {
+        const responseData = (error as { response?: { data?: { message?: string, errors?: { fbr?: string[] } } } }).response?.data
+        notificationStore.showNotification({
+          type: 'error',
+          message:
+            responseData?.errors?.fbr?.[0] ||
+            responseData?.message ||
+            'FBR validation failed.',
+        })
+        throw error
+      }
+    },
+
+    async checkFbrReadiness(id: number): Promise<Awaited<ReturnType<typeof invoiceService.checkFbrReadiness>>['data']> {
+      const response = await invoiceService.checkFbrReadiness(id)
+      return response.data
+    },
+
     async getNextNumber(
       params?: Record<string, unknown>,
       setState = false,

@@ -24,7 +24,17 @@
 
         <BaseButton
           v-if="canSend"
-          :disabled="isSubmittingToFbr"
+          :disabled="isValidatingWithFbr || isFbrSubmitted"
+          variant="primary-outline"
+          class="text-sm mr-3"
+          @click="onValidateWithFbr"
+        >
+          {{ isValidatingWithFbr ? 'Validating with FBR...' : 'Validate FBR' }}
+        </BaseButton>
+
+        <BaseButton
+          v-if="canSend"
+          :disabled="isSubmittingToFbr || isCheckingFbrReadiness || isFbrSubmitted"
           variant="primary-outline"
           class="text-sm mr-3"
           @click="onSubmitToFbr"
@@ -220,6 +230,12 @@
       <div v-if="invoiceData.fbr_submission.error_message" class="text-red-500">
         {{ invoiceData.fbr_submission.error_message }}
       </div>
+      <div
+        v-if="invoiceData.fbr_submission.status === 'VALIDATED'"
+        class="mt-1 text-green-600"
+      >
+        This invoice passed FBR validation and is ready for final submission.
+      </div>
     </div>
 
     <BasePdfPreview :src="shareableLink" />
@@ -307,6 +323,8 @@ const canCreateEstimate = computed<boolean>(() => {
 
 const invoiceData = ref<Invoice | null>(null)
 const isMarkAsSent = ref<boolean>(false)
+const isCheckingFbrReadiness = ref<boolean>(false)
+const isValidatingWithFbr = ref<boolean>(false)
 const isSubmittingToFbr = ref<boolean>(false)
 const isLoading = ref<boolean>(false)
 
@@ -328,6 +346,10 @@ const searchData = reactive<SearchData>({
 })
 
 const pageTitle = computed<string>(() => invoiceData.value?.invoice_number ?? '')
+
+const isFbrSubmitted = computed<boolean>(() => {
+  return invoiceData.value?.fbr_submission?.status === 'SUBMITTED'
+})
 
 const getOrderBy = computed<boolean>(() => {
   return searchData.orderBy === 'asc' || searchData.orderBy === null
@@ -379,7 +401,7 @@ function onSendInvoice(): void {
 function onSubmitToFbr(): void {
   dialogStore.openDialog({
     title: 'Submit invoice to FBR?',
-    message: 'This will send this invoice data to the configured FBR environment.',
+    message: 'This will run a readiness check first, then send this invoice data to the configured FBR environment.',
     yesLabel: t('general.ok'),
     noLabel: t('general.cancel'),
     variant: 'primary',
@@ -389,13 +411,41 @@ function onSubmitToFbr(): void {
     if (!res || !invoiceData.value) return
 
     isSubmittingToFbr.value = true
+    isCheckingFbrReadiness.value = true
     try {
+      const readiness = await invoiceStore.checkFbrReadiness(invoiceData.value.id)
+      isCheckingFbrReadiness.value = false
+
+      if (!readiness.can_submit) {
+        await dialogStore.openDialog({
+          title: 'FBR invoice is not ready',
+          message: readiness.missing.join('\n'),
+          yesLabel: t('general.ok'),
+          variant: 'danger',
+          hideNoButton: true,
+          size: 'lg',
+        })
+        return
+      }
+
       await invoiceStore.submitToFbr(invoiceData.value.id)
       await loadInvoice()
     } finally {
+      isCheckingFbrReadiness.value = false
       isSubmittingToFbr.value = false
     }
   })
+}
+
+function onValidateWithFbr(): void {
+  if (!invoiceData.value) return
+
+  isValidatingWithFbr.value = true
+  invoiceStore.validateWithFbr(invoiceData.value.id)
+    .then(() => loadInvoice())
+    .finally(() => {
+      isValidatingWithFbr.value = false
+    })
 }
 
 function hasActiveUrl(id: number): boolean {

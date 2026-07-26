@@ -2,6 +2,7 @@
 
 use App\Models\Address;
 use App\Models\Customer;
+use App\Models\FbrInvoiceSubmission;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Tax;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 
+use function Pest\Laravel\getJson;
 use function Pest\Laravel\postJson;
 
 beforeEach(function () {
@@ -26,84 +28,13 @@ beforeEach(function () {
 });
 
 test('submits invoice payload to FBR and records response', function () {
-    config([
-        'fbr.sandbox_token' => 'sandbox-token',
-        'fbr.enabled' => true,
-        'fbr.seller_ntn' => '1234567',
-        'fbr.seller_business_name' => 'Seller Pvt Ltd',
-        'fbr.seller_province' => 'Sindh',
-        'fbr.seller_address' => 'Karachi',
-        'fbr.default_hs_code' => '0101.2100',
-        'fbr.default_uom' => 'Numbers, pieces, units',
-        'fbr.sandbox_scenario_id' => 'SN001',
-    ]);
+    configureFbr();
 
     Http::fake([
         'gw.fbr.gov.pk/*' => Http::response(['invoiceNumber' => 'FBR-001'], 200),
     ]);
 
-    $customer = Customer::factory()->create([
-        'company_id' => $this->company->id,
-        'tax_id' => 'legacy-tax-id',
-        'fbr_ntn' => '1000000000000',
-        'fbr_registration_type' => 'Registered',
-        'company_name' => 'Buyer Pvt Ltd',
-    ]);
-
-    Address::factory()->create([
-        'company_id' => $this->company->id,
-        'customer_id' => $customer->id,
-        'type' => Address::BILLING_TYPE,
-        'state' => 'Punjab',
-        'city' => 'Lahore',
-        'address_street_1' => 'Main Road',
-        'address_street_2' => null,
-    ]);
-
-    $invoice = Invoice::factory()->create([
-        'company_id' => $this->company->id,
-        'customer_id' => $customer->id,
-        'invoice_date' => '2026-07-23',
-        'invoice_number' => 'INV-001',
-        'sub_total' => 100000,
-        'total' => 118000,
-        'tax' => 18000,
-        'due_amount' => 118000,
-    ]);
-
-    $item = InvoiceItem::factory()->create([
-        'company_id' => $this->company->id,
-        'invoice_id' => $invoice->id,
-        'name' => 'Welding Rod',
-        'quantity' => 2,
-        'price' => 50000,
-        'total' => 100000,
-        'tax' => 18000,
-        'unit_name' => null,
-        'fbr_hs_code' => '4901.9900',
-        'fbr_uom' => 'Numbers, pieces, units',
-        'fbr_sale_type' => 'Goods at standard rate (default)',
-        'fbr_sro_no' => 'SRO-001',
-        'fbr_sro_item_no' => '1',
-        'fbr_fixed_notified_value' => 125000,
-        'fbr_sales_tax_withheld' => 1000,
-        'fbr_further_tax' => 2000,
-        'fbr_extra_tax' => 3000,
-        'fbr_fed_payable' => 4000,
-    ]);
-
-    $taxType = TaxType::factory()->create([
-        'company_id' => $this->company->id,
-        'percent' => 18,
-    ]);
-
-    Tax::factory()->create([
-        'company_id' => $this->company->id,
-        'invoice_item_id' => $item->id,
-        'tax_type_id' => $taxType->id,
-        'percent' => 18,
-        'amount' => 18000,
-    ]);
+    $invoice = createFbrReadyInvoice($this->company->id);
 
     postJson("api/v1/invoices/{$invoice->id}/fbr/submit")
         ->assertCreated()
@@ -140,3 +71,201 @@ test('submits invoice payload to FBR and records response', function () {
         'fbr_invoice_number' => 'FBR-001',
     ]);
 });
+
+test('checks invoice readiness before FBR submission', function () {
+    configureFbr();
+
+    $invoice = createFbrReadyInvoice($this->company->id);
+
+    getJson("api/v1/invoices/{$invoice->id}/fbr/readiness")
+        ->assertOk()
+        ->assertJsonPath('data.ready', true)
+        ->assertJsonPath('data.can_submit', true)
+        ->assertJsonPath('data.environment', 'sandbox')
+        ->assertJsonPath('data.configured', true)
+        ->assertJsonPath('data.already_submitted', false)
+        ->assertJsonPath('data.missing', []);
+});
+
+test('reports missing readiness data without calling FBR', function () {
+    configureFbr([
+        'fbr.default_hs_code' => null,
+    ]);
+
+    $customer = Customer::factory()->create([
+        'company_id' => $this->company->id,
+        'tax_id' => null,
+        'fbr_ntn' => null,
+        'fbr_cnic' => null,
+        'company_name' => null,
+    ]);
+
+    $invoice = Invoice::factory()->create([
+        'company_id' => $this->company->id,
+        'customer_id' => $customer->id,
+        'invoice_date' => '2026-07-23',
+        'invoice_number' => 'INV-MISSING',
+    ]);
+
+    InvoiceItem::factory()->create([
+        'company_id' => $this->company->id,
+        'invoice_id' => $invoice->id,
+        'name' => 'Incomplete item',
+        'tax' => 0,
+        'unit_name' => null,
+        'fbr_hs_code' => null,
+        'fbr_uom' => null,
+        'fbr_sale_type' => null,
+    ]);
+
+    $response = getJson("api/v1/invoices/{$invoice->id}/fbr/readiness")
+        ->assertOk()
+        ->assertJsonPath('data.ready', false)
+        ->assertJsonPath('data.can_submit', false)
+        ->assertJsonPath('data.configured', false)
+        ->assertJsonPath('data.missing.0', 'FBR_DEFAULT_HS_CODE');
+
+    expect($response->json('data.missing'))->toContain(
+        'Customer tax ID / NTN-CNIC',
+        'Customer billing province/state',
+        'Line 1 item HS code',
+        'Line 1 item tax rate',
+        'Line 1 item unit/UOM',
+    );
+});
+
+test('records successful FBR validation separately from final submission', function () {
+    configureFbr();
+
+    Http::fake([
+        'gw.fbr.gov.pk/*' => Http::response([
+            'validationResponse' => [
+                'status' => 'Valid',
+            ],
+        ], 200),
+    ]);
+
+    $invoice = createFbrReadyInvoice($this->company->id);
+
+    postJson("api/v1/invoices/{$invoice->id}/fbr/validate")
+        ->assertCreated()
+        ->assertJsonPath('data.status', 'VALIDATED')
+        ->assertJsonPath('data.fbr_invoice_number', null)
+        ->assertJsonPath('data.request_payload.invoiceRefNo', 'INV-001');
+
+    $this->assertDatabaseHas('fbr_invoice_submissions', [
+        'invoice_id' => $invoice->id,
+        'company_id' => $this->company->id,
+        'environment' => 'sandbox',
+        'status' => 'VALIDATED',
+        'fbr_invoice_number' => null,
+    ]);
+});
+
+test('prevents duplicate FBR final submissions', function () {
+    configureFbr();
+
+    Http::fake();
+
+    $invoice = createFbrReadyInvoice($this->company->id);
+
+    FbrInvoiceSubmission::create([
+        'invoice_id' => $invoice->id,
+        'company_id' => $this->company->id,
+        'environment' => 'sandbox',
+        'status' => FbrInvoiceSubmission::STATUS_SUBMITTED,
+        'fbr_invoice_number' => 'FBR-EXISTING',
+    ]);
+
+    postJson("api/v1/invoices/{$invoice->id}/fbr/submit")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('fbr');
+
+    Http::assertNothingSent();
+});
+
+function configureFbr(array $overrides = []): void
+{
+    config([
+        ...[
+            'fbr.sandbox_token' => 'sandbox-token',
+            'fbr.enabled' => true,
+            'fbr.seller_ntn' => '1234567',
+            'fbr.seller_business_name' => 'Seller Pvt Ltd',
+            'fbr.seller_province' => 'Sindh',
+            'fbr.seller_address' => 'Karachi',
+            'fbr.default_hs_code' => '0101.2100',
+            'fbr.default_uom' => 'Numbers, pieces, units',
+            'fbr.sandbox_scenario_id' => 'SN001',
+        ],
+        ...$overrides,
+    ]);
+}
+
+function createFbrReadyInvoice(int $companyId): Invoice
+{
+    $customer = Customer::factory()->create([
+        'company_id' => $companyId,
+        'tax_id' => 'legacy-tax-id',
+        'fbr_ntn' => '1000000000000',
+        'fbr_registration_type' => 'Registered',
+        'company_name' => 'Buyer Pvt Ltd',
+    ]);
+
+    Address::factory()->create([
+        'company_id' => $companyId,
+        'customer_id' => $customer->id,
+        'type' => Address::BILLING_TYPE,
+        'state' => 'Punjab',
+        'city' => 'Lahore',
+        'address_street_1' => 'Main Road',
+        'address_street_2' => null,
+    ]);
+
+    $invoice = Invoice::factory()->create([
+        'company_id' => $companyId,
+        'customer_id' => $customer->id,
+        'invoice_date' => '2026-07-23',
+        'invoice_number' => 'INV-001',
+        'sub_total' => 100000,
+        'total' => 118000,
+        'tax' => 18000,
+        'due_amount' => 118000,
+    ]);
+
+    $item = InvoiceItem::factory()->create([
+        'company_id' => $companyId,
+        'invoice_id' => $invoice->id,
+        'name' => 'Welding Rod',
+        'quantity' => 2,
+        'price' => 50000,
+        'total' => 100000,
+        'tax' => 18000,
+        'unit_name' => null,
+        'fbr_hs_code' => '4901.9900',
+        'fbr_uom' => 'Numbers, pieces, units',
+        'fbr_sale_type' => 'Goods at standard rate (default)',
+        'fbr_sro_no' => 'SRO-001',
+        'fbr_sro_item_no' => '1',
+        'fbr_fixed_notified_value' => 125000,
+        'fbr_sales_tax_withheld' => 1000,
+        'fbr_further_tax' => 2000,
+        'fbr_extra_tax' => 3000,
+        'fbr_fed_payable' => 4000,
+    ]);
+
+    $taxType = TaxType::factory()->create([
+        'company_id' => $companyId,
+        'percent' => 18,
+    ]);
+
+    Tax::factory()->create([
+        'company_id' => $companyId,
+        'invoice_item_id' => $item->id,
+        'tax_type_id' => $taxType->id,
+        'percent' => 18,
+        'amount' => 18000,
+    ]);
+
+    return $invoice;
+}

@@ -286,6 +286,8 @@ Route::prefix('/v1')->group(function () {
 
             Route::post('/invoices/{invoice}/fbr/validate', [FbrInvoiceController::class, 'validateInvoice']);
 
+            Route::get('/invoices/{invoice}/fbr/readiness', [FbrInvoiceController::class, 'readiness']);
+
             Route::post('/invoices/{invoice}/fbr/submit', [FbrInvoiceController::class, 'submit']);
 
             Route::post('/invoices/delete', [InvoicesController::class, 'delete']);

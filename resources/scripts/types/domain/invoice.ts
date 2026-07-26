@@ -111,11 +111,21 @@ export interface Invoice {
 export interface FbrInvoiceSubmission {
   id: number
   environment: string
-  status: 'SUBMITTED' | 'FAILED'
+  status: 'SUBMITTED' | 'VALIDATED' | 'FAILED'
   fbr_invoice_number: string | null
+  request_payload: Record<string, unknown> | null
   response_payload: Record<string, unknown> | null
   error_message: string | null
   submitted_at: string | null
+}
+
+export interface FbrReadiness {
+  ready: boolean
+  can_submit: boolean
+  environment: 'sandbox' | 'production'
+  configured: boolean
+  already_submitted: boolean
+  missing: string[]
 }
 
 export interface CreateInvoicePayload {

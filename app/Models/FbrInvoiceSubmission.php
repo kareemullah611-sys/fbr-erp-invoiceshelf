@@ -12,6 +12,8 @@ class FbrInvoiceSubmission extends Model
 
     public const STATUS_SUBMITTED = 'SUBMITTED';
 
+    public const STATUS_VALIDATED = 'VALIDATED';
+
     public const STATUS_FAILED = 'FAILED';
 
     protected $guarded = [

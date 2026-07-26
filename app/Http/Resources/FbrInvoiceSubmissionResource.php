@@ -14,6 +14,7 @@ class FbrInvoiceSubmissionResource extends JsonResource
             'environment' => $this->environment,
             'status' => $this->status,
             'fbr_invoice_number' => $this->fbr_invoice_number,
+            'request_payload' => $this->request_payload,
             'response_payload' => $this->response_payload,
             'error_message' => $this->error_message,
             'submitted_at' => $this->submitted_at,

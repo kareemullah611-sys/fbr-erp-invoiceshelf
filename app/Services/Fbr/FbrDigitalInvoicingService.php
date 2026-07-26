@@ -20,7 +20,48 @@ class FbrDigitalInvoicingService
 
     public function submit(Invoice $invoice): FbrInvoiceSubmission
     {
+        if ($invoice->fbrSubmissions()->where('status', FbrInvoiceSubmission::STATUS_SUBMITTED)->exists()) {
+            throw ValidationException::withMessages([
+                'fbr' => 'This invoice has already been submitted to FBR.',
+            ]);
+        }
+
         return $this->send($invoice, 'submit');
+    }
+
+    public function readiness(Invoice $invoice): array
+    {
+        $environment = $this->environment();
+        $missing = $this->configurationMissing($environment);
+        $alreadySubmitted = $invoice->fbrSubmissions()
+            ->where('status', FbrInvoiceSubmission::STATUS_SUBMITTED)
+            ->exists();
+
+        if ($alreadySubmitted) {
+            $missing[] = 'Invoice already has a submitted FBR invoice number.';
+        }
+
+        try {
+            $payload = $this->buildPayload($invoice, $environment);
+            $missing = array_values(array_unique([
+                ...$missing,
+                ...$this->payloadMissing($payload),
+            ]));
+        } catch (ValidationException $exception) {
+            $missing = array_values(array_unique([
+                ...$missing,
+                ...collect($exception->errors())->flatten()->all(),
+            ]));
+        }
+
+        return [
+            'ready' => $missing === [],
+            'can_submit' => $missing === [],
+            'environment' => $environment,
+            'configured' => $this->configurationMissing($environment) === [],
+            'already_submitted' => $alreadySubmitted,
+            'missing' => $missing,
+        ];
     }
 
     private function send(Invoice $invoice, string $action): FbrInvoiceSubmission
@@ -37,14 +78,23 @@ class FbrDigitalInvoicingService
             ->timeout((int) config('fbr.timeout'))
             ->post($url, $payload);
 
-        return $this->storeSubmission($invoice, $environment, $payload, $response);
+        return $this->storeSubmission($invoice, $environment, $action, $payload, $response);
     }
 
     public function payload(Invoice $invoice, string $environment = 'sandbox'): array
     {
-        $invoice->loadMissing(['company', 'customer.billingAddress', 'items.item', 'items.taxes']);
-
         $this->guardConfigured($environment);
+
+        $payload = $this->buildPayload($invoice, $environment);
+
+        $this->guardPayload($payload);
+
+        return $payload;
+    }
+
+    private function buildPayload(Invoice $invoice, string $environment): array
+    {
+        $invoice->loadMissing(['company', 'customer.billingAddress', 'items.item', 'items.taxes']);
 
         if ($invoice->items->isEmpty()) {
             throw ValidationException::withMessages([
@@ -80,8 +130,6 @@ class FbrDigitalInvoicingService
             $payload['scenarioId'] = config('fbr.sandbox_scenario_id');
         }
 
-        $this->guardPayload($payload);
-
         return $payload;
     }
 
@@ -112,22 +160,23 @@ class FbrDigitalInvoicingService
         return array_filter($payload, fn ($value) => $value !== null);
     }
 
-    private function storeSubmission(Invoice $invoice, string $environment, array $payload, Response $response): FbrInvoiceSubmission
+    private function storeSubmission(Invoice $invoice, string $environment, string $action, array $payload, Response $response): FbrInvoiceSubmission
     {
         $responsePayload = $response->json() ?? ['body' => $response->body()];
         $fbrInvoiceNumber = Arr::get($responsePayload, 'invoiceNumber')
             ?? Arr::get($responsePayload, 'InvoiceNumber')
             ?? Arr::get($responsePayload, 'data.invoiceNumber');
+        $status = $this->submissionStatus($action, $response, $responsePayload, $fbrInvoiceNumber);
 
         return FbrInvoiceSubmission::create([
             'invoice_id' => $invoice->id,
             'company_id' => $invoice->company_id,
             'environment' => $environment,
-            'status' => $response->successful() && $fbrInvoiceNumber ? FbrInvoiceSubmission::STATUS_SUBMITTED : FbrInvoiceSubmission::STATUS_FAILED,
+            'status' => $status,
             'fbr_invoice_number' => $fbrInvoiceNumber,
             'request_payload' => $payload,
             'response_payload' => $responsePayload,
-            'error_message' => $response->successful() ? null : $response->body(),
+            'error_message' => $status === FbrInvoiceSubmission::STATUS_FAILED ? $this->errorMessage($response, $responsePayload) : null,
             'submitted_at' => now(),
         ]);
     }
@@ -140,19 +189,7 @@ class FbrDigitalInvoicingService
             ]);
         }
 
-        $required = [
-            'fbr.seller_ntn' => 'FBR_SELLER_NTN',
-            'fbr.seller_province' => 'FBR_SELLER_PROVINCE',
-            'fbr.seller_address' => 'FBR_SELLER_ADDRESS',
-            'fbr.default_hs_code' => 'FBR_DEFAULT_HS_CODE',
-            'fbr.default_uom' => 'FBR_DEFAULT_UOM',
-            "fbr.{$environment}_token" => strtoupper("FBR_{$environment}_TOKEN"),
-        ];
-
-        $missing = collect($required)
-            ->filter(fn ($envName, $configKey) => blank(config($configKey)))
-            ->values()
-            ->all();
+        $missing = $this->configurationMissing($environment);
 
         if ($missing !== []) {
             throw ValidationException::withMessages([
@@ -162,6 +199,17 @@ class FbrDigitalInvoicingService
     }
 
     private function guardPayload(array $payload): void
+    {
+        $missing = $this->payloadMissing($payload);
+
+        if ($missing !== []) {
+            throw ValidationException::withMessages([
+                'fbr' => 'Missing FBR invoice data: '.implode(', ', $missing),
+            ]);
+        }
+    }
+
+    private function payloadMissing(array $payload): array
     {
         $missing = collect([
             'buyerNTNCNIC' => 'Customer tax ID / NTN-CNIC',
@@ -178,11 +226,60 @@ class FbrDigitalInvoicingService
             }
         }
 
-        if ($missing !== []) {
-            throw ValidationException::withMessages([
-                'fbr' => 'Missing FBR invoice data: '.implode(', ', $missing),
-            ]);
+        return $missing;
+    }
+
+    private function configurationMissing(string $environment): array
+    {
+        $required = [
+            'fbr.seller_ntn' => 'FBR_SELLER_NTN',
+            'fbr.seller_province' => 'FBR_SELLER_PROVINCE',
+            'fbr.seller_address' => 'FBR_SELLER_ADDRESS',
+            'fbr.default_hs_code' => 'FBR_DEFAULT_HS_CODE',
+            'fbr.default_uom' => 'FBR_DEFAULT_UOM',
+            "fbr.{$environment}_token" => strtoupper("FBR_{$environment}_TOKEN"),
+        ];
+
+        if (! config('fbr.enabled')) {
+            $required['fbr.enabled'] = 'FBR_ENABLED';
         }
+
+        return collect($required)
+            ->filter(fn ($envName, $configKey) => blank(config($configKey)))
+            ->values()
+            ->all();
+    }
+
+    private function submissionStatus(string $action, Response $response, array $responsePayload, ?string $fbrInvoiceNumber): string
+    {
+        if (! $response->successful()) {
+            return FbrInvoiceSubmission::STATUS_FAILED;
+        }
+
+        if ($action === 'validate' && $this->responseIsValid($responsePayload)) {
+            return FbrInvoiceSubmission::STATUS_VALIDATED;
+        }
+
+        return $fbrInvoiceNumber ? FbrInvoiceSubmission::STATUS_SUBMITTED : FbrInvoiceSubmission::STATUS_FAILED;
+    }
+
+    private function responseIsValid(array $responsePayload): bool
+    {
+        $status = Arr::get($responsePayload, 'validationResponse.status')
+            ?? Arr::get($responsePayload, 'ValidationResponse.status')
+            ?? Arr::get($responsePayload, 'status')
+            ?? Arr::get($responsePayload, 'data.status');
+
+        return is_string($status) && strtolower($status) === 'valid';
+    }
+
+    private function errorMessage(Response $response, array $responsePayload): string
+    {
+        return Arr::get($responsePayload, 'validationResponse.error')
+            ?? Arr::get($responsePayload, 'validationResponse.message')
+            ?? Arr::get($responsePayload, 'error')
+            ?? Arr::get($responsePayload, 'message')
+            ?? $response->body();
     }
 
     private function token(string $environment): string

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\FbrInvoiceSubmissionResource;
 use App\Models\Invoice;
 use App\Services\Fbr\FbrDigitalInvoicingService;
+use Illuminate\Http\JsonResponse;
 
 class FbrInvoiceController extends Controller
 {
@@ -20,6 +21,15 @@ class FbrInvoiceController extends Controller
         return new FbrInvoiceSubmissionResource(
             $this->fbrDigitalInvoicingService->validate($invoice)
         );
+    }
+
+    public function readiness(Invoice $invoice): JsonResponse
+    {
+        $this->authorize('send invoice', $invoice);
+
+        return response()->json([
+            'data' => $this->fbrDigitalInvoicingService->readiness($invoice),
+        ]);
     }
 
     public function submit(Invoice $invoice): FbrInvoiceSubmissionResource
