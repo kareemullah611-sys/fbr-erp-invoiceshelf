@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-glass-gradient relative min-h-screen w-full overflow-hidden">
+  <div class="bg-glass-gradient relative h-screen w-full overflow-x-hidden overflow-y-auto">
     <NotificationRoot />
 
     <main
