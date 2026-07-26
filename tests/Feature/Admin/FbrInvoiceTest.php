@@ -90,6 +90,7 @@ test('checks invoice readiness before FBR submission', function () {
 test('reports missing readiness data without calling FBR', function () {
     configureFbr([
         'fbr.default_hs_code' => null,
+        'fbr.default_uom' => null,
     ]);
 
     $customer = Customer::factory()->create([

@@ -216,11 +216,11 @@ class FbrDigitalInvoicingService
             'buyerBusinessName' => 'Customer name',
             'buyerProvince' => 'Customer billing province/state',
             'buyerAddress' => 'Customer billing address',
-        ])->filter(fn ($label, $key) => blank($payload[$key]))->values()->all();
+        ])->filter(fn ($label, $key) => blank($payload[$key] ?? null))->values()->all();
 
         foreach ($payload['items'] as $index => $item) {
             foreach (['hsCode' => 'item HS code', 'rate' => 'item tax rate', 'uoM' => 'item unit/UOM', 'saleType' => 'item sale type'] as $key => $label) {
-                if (blank($item[$key])) {
+                if (blank($item[$key] ?? null)) {
                     $missing[] = 'Line '.($index + 1).' '.$label;
                 }
             }
