@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Address;
+use App\Models\Company;
+use App\Models\CompanySetting;
 use App\Models\Customer;
 use App\Models\FbrInvoiceSubmission;
 use App\Models\Invoice;
@@ -86,6 +88,79 @@ test('checks invoice readiness before FBR submission', function () {
         ->assertJsonPath('data.configured', true)
         ->assertJsonPath('data.already_submitted', false)
         ->assertJsonPath('data.missing', []);
+});
+
+test('uses company FBR settings before global configuration', function () {
+    configureFbr([
+        'fbr.enabled' => false,
+        'fbr.sandbox_token' => null,
+        'fbr.seller_ntn' => null,
+        'fbr.seller_business_name' => null,
+        'fbr.seller_province' => null,
+        'fbr.seller_address' => null,
+        'fbr.default_hs_code' => null,
+        'fbr.default_uom' => null,
+        'fbr.sandbox_scenario_id' => null,
+    ]);
+
+    CompanySetting::setSettings([
+        'fbr_enabled' => 'true',
+        'fbr_environment' => 'sandbox',
+        'fbr_sandbox_token' => 'company-sandbox-token',
+        'fbr_seller_ntn' => '7654321',
+        'fbr_seller_business_name' => 'Company Seller Pvt Ltd',
+        'fbr_seller_province' => 'Punjab',
+        'fbr_seller_address' => 'Lahore',
+        'fbr_default_hs_code' => '0101.2100',
+        'fbr_default_uom' => 'Numbers, pieces, units',
+        'fbr_sandbox_scenario_id' => 'SN002',
+    ], $this->company->id);
+
+    Http::fake([
+        'gw.fbr.gov.pk/*' => Http::response(['invoiceNumber' => 'FBR-COMPANY-001'], 200),
+    ]);
+
+    $invoice = createFbrReadyInvoice($this->company->id);
+
+    postJson("api/v1/invoices/{$invoice->id}/fbr/submit")
+        ->assertCreated()
+        ->assertJsonPath('data.status', 'SUBMITTED');
+
+    Http::assertSent(function ($request) {
+        return $request->hasHeader('Authorization', 'Bearer company-sandbox-token')
+            && $request['sellerNTNCNIC'] === '7654321'
+            && $request['sellerBusinessName'] === 'Company Seller Pvt Ltd'
+            && $request['sellerProvince'] === 'Punjab'
+            && $request['sellerAddress'] === 'Lahore'
+            && $request['scenarioId'] === 'SN002';
+    });
+});
+
+test('does not use another company FBR settings', function () {
+    configureFbr();
+
+    $otherCompany = Company::factory()->create();
+    CompanySetting::setSettings([
+        'fbr_enabled' => 'true',
+        'fbr_sandbox_token' => 'other-company-token',
+        'fbr_seller_ntn' => '9999999',
+        'fbr_sandbox_scenario_id' => 'SN999',
+    ], $otherCompany->id);
+
+    Http::fake([
+        'gw.fbr.gov.pk/*' => Http::response(['invoiceNumber' => 'FBR-001'], 200),
+    ]);
+
+    $invoice = createFbrReadyInvoice($this->company->id);
+
+    postJson("api/v1/invoices/{$invoice->id}/fbr/submit")
+        ->assertCreated();
+
+    Http::assertSent(function ($request) {
+        return $request->hasHeader('Authorization', 'Bearer sandbox-token')
+            && $request['sellerNTNCNIC'] === '1234567'
+            && $request['scenarioId'] === 'SN001';
+    });
 });
 
 test('reports missing readiness data without calling FBR', function () {

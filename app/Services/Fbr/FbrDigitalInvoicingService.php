@@ -2,6 +2,7 @@
 
 namespace App\Services\Fbr;
 
+use App\Models\CompanySetting;
 use App\Models\FbrInvoiceSubmission;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -13,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class FbrDigitalInvoicingService
 {
+    private array $companySettings = [];
+
     public function validate(Invoice $invoice): FbrInvoiceSubmission
     {
         return $this->send($invoice, 'validate');
@@ -31,8 +34,10 @@ class FbrDigitalInvoicingService
 
     public function readiness(Invoice $invoice): array
     {
-        $environment = $this->environment();
-        $missing = $this->configurationMissing($environment);
+        $invoice->loadMissing('company');
+
+        $environment = $this->environment($invoice);
+        $missing = $this->configurationMissing($invoice, $environment);
         $alreadySubmitted = $invoice->fbrSubmissions()
             ->where('status', FbrInvoiceSubmission::STATUS_SUBMITTED)
             ->exists();
@@ -58,7 +63,7 @@ class FbrDigitalInvoicingService
             'ready' => $missing === [],
             'can_submit' => $missing === [],
             'environment' => $environment,
-            'configured' => $this->configurationMissing($environment) === [],
+            'configured' => $this->configurationMissing($invoice, $environment) === [],
             'already_submitted' => $alreadySubmitted,
             'missing' => $missing,
         ];
@@ -68,11 +73,11 @@ class FbrDigitalInvoicingService
     {
         $invoice->loadMissing(['company', 'customer.billingAddress', 'items.item', 'items.taxes']);
 
-        $environment = $this->environment();
+        $environment = $this->environment($invoice);
         $payload = $this->payload($invoice, $environment);
         $url = config("fbr.urls.{$environment}.{$action}");
 
-        $response = Http::withToken($this->token($environment))
+        $response = Http::withToken($this->token($invoice, $environment))
             ->acceptJson()
             ->asJson()
             ->timeout((int) config('fbr.timeout'))
@@ -83,7 +88,9 @@ class FbrDigitalInvoicingService
 
     public function payload(Invoice $invoice, string $environment = 'sandbox'): array
     {
-        $this->guardConfigured($environment);
+        $invoice->loadMissing('company');
+
+        $this->guardConfigured($invoice, $environment);
 
         $payload = $this->buildPayload($invoice, $environment);
 
@@ -113,42 +120,42 @@ class FbrDigitalInvoicingService
         $payload = [
             'invoiceType' => 'Sale Invoice',
             'invoiceDate' => Carbon::parse($invoice->invoice_date)->format('Y-m-d'),
-            'sellerNTNCNIC' => config('fbr.seller_ntn'),
-            'sellerBusinessName' => config('fbr.seller_business_name') ?: $invoice->company->name,
-            'sellerProvince' => config('fbr.seller_province'),
-            'sellerAddress' => config('fbr.seller_address'),
+            'sellerNTNCNIC' => $this->setting($invoice, 'seller_ntn'),
+            'sellerBusinessName' => $this->setting($invoice, 'seller_business_name') ?: $invoice->company->name,
+            'sellerProvince' => $this->setting($invoice, 'seller_province'),
+            'sellerAddress' => $this->setting($invoice, 'seller_address'),
             'buyerNTNCNIC' => $invoice->customer?->fbr_ntn ?: $invoice->customer?->fbr_cnic ?: $invoice->customer?->tax_id ?: null,
             'buyerBusinessName' => $invoice->customer?->company_name ?: $invoice->customer?->name,
             'buyerProvince' => $buyerProvince,
             'buyerAddress' => $buyerAddressText ?: null,
-            'buyerRegistrationType' => $invoice->customer?->fbr_registration_type ?: config('fbr.default_buyer_registration_type'),
+            'buyerRegistrationType' => $invoice->customer?->fbr_registration_type ?: $this->setting($invoice, 'default_buyer_registration_type'),
             'invoiceRefNo' => $invoice->invoice_number,
-            'items' => $invoice->items->map(fn ($item) => $this->itemPayload($item))->values()->all(),
+            'items' => $invoice->items->map(fn ($item) => $this->itemPayload($invoice, $item))->values()->all(),
         ];
 
-        if ($environment === 'sandbox' && config('fbr.sandbox_scenario_id')) {
-            $payload['scenarioId'] = config('fbr.sandbox_scenario_id');
+        if ($environment === 'sandbox' && $this->setting($invoice, 'sandbox_scenario_id')) {
+            $payload['scenarioId'] = $this->setting($invoice, 'sandbox_scenario_id');
         }
 
         return $payload;
     }
 
-    private function itemPayload(InvoiceItem $item): array
+    private function itemPayload(Invoice $invoice, InvoiceItem $item): array
     {
         $tax = $item->taxes->first();
         $rate = $tax?->percent !== null ? rtrim(rtrim(number_format($tax->percent, 2, '.', ''), '0'), '.').'%' : null;
 
         $payload = [
-            'hsCode' => $item->fbr_hs_code ?: $item->item?->fbr_hs_code ?: config('fbr.default_hs_code'),
+            'hsCode' => $item->fbr_hs_code ?: $item->item?->fbr_hs_code ?: $this->setting($invoice, 'default_hs_code'),
             'productDescription' => $item->name,
             'rate' => $rate,
-            'uoM' => $item->fbr_uom ?: $item->unit_name ?: $item->item?->fbr_uom ?: config('fbr.default_uom'),
+            'uoM' => $item->fbr_uom ?: $item->unit_name ?: $item->item?->fbr_uom ?: $this->setting($invoice, 'default_uom'),
             'quantity' => (float) $item->quantity,
             'totalValues' => $this->money($item->total + $item->tax),
             'valueSalesExcludingST' => $this->money($item->total),
             'salesTaxApplicable' => $this->money($item->tax),
             'discount' => $this->money(0),
-            'saleType' => $item->fbr_sale_type ?: $item->item?->fbr_sale_type ?: config('fbr.default_sale_type'),
+            'saleType' => $item->fbr_sale_type ?: $item->item?->fbr_sale_type ?: $this->setting($invoice, 'default_sale_type'),
             'fixedNotifiedValueOrRetailPrice' => $this->optionalMoney($item->fbr_fixed_notified_value ?? $item->item?->fbr_fixed_notified_value),
             'salesTaxWithheldAtSource' => $this->optionalMoney($item->fbr_sales_tax_withheld ?? $item->item?->fbr_sales_tax_withheld),
             'furtherTax' => $this->optionalMoney($item->fbr_further_tax ?? $item->item?->fbr_further_tax),
@@ -182,15 +189,15 @@ class FbrDigitalInvoicingService
         ]);
     }
 
-    private function guardConfigured(string $environment): void
+    private function guardConfigured(Invoice $invoice, string $environment): void
     {
-        if (! config('fbr.enabled')) {
+        if (! $this->enabled($invoice)) {
             throw ValidationException::withMessages([
                 'fbr' => 'FBR integration is disabled. Set FBR_ENABLED=true and configure FBR credentials.',
             ]);
         }
 
-        $missing = $this->configurationMissing($environment);
+        $missing = $this->configurationMissing($invoice, $environment);
 
         if ($missing !== []) {
             throw ValidationException::withMessages([
@@ -230,23 +237,25 @@ class FbrDigitalInvoicingService
         return $missing;
     }
 
-    private function configurationMissing(string $environment): array
+    private function configurationMissing(Invoice $invoice, string $environment): array
     {
         $required = [
-            'fbr.seller_ntn' => 'FBR_SELLER_NTN',
-            'fbr.seller_province' => 'FBR_SELLER_PROVINCE',
-            'fbr.seller_address' => 'FBR_SELLER_ADDRESS',
-            'fbr.default_hs_code' => 'FBR_DEFAULT_HS_CODE',
-            'fbr.default_uom' => 'FBR_DEFAULT_UOM',
-            "fbr.{$environment}_token" => strtoupper("FBR_{$environment}_TOKEN"),
+            'seller_ntn' => 'FBR_SELLER_NTN',
+            'seller_province' => 'FBR_SELLER_PROVINCE',
+            'seller_address' => 'FBR_SELLER_ADDRESS',
+            'default_hs_code' => 'FBR_DEFAULT_HS_CODE',
+            'default_uom' => 'FBR_DEFAULT_UOM',
+            "{$environment}_token" => strtoupper("FBR_{$environment}_TOKEN"),
         ];
 
-        if (! config('fbr.enabled')) {
-            $required['fbr.enabled'] = 'FBR_ENABLED';
+        if (! $this->enabled($invoice)) {
+            $required['enabled'] = 'FBR_ENABLED';
         }
 
         return collect($required)
-            ->filter(fn ($envName, $configKey) => blank(config($configKey)))
+            ->filter(fn ($envName, $key) => $key === 'enabled'
+                ? ! $this->enabled($invoice)
+                : blank($this->setting($invoice, $key)))
             ->values()
             ->all();
     }
@@ -283,14 +292,34 @@ class FbrDigitalInvoicingService
             ?? $response->body();
     }
 
-    private function token(string $environment): string
+    private function token(Invoice $invoice, string $environment): string
     {
-        return (string) config("fbr.{$environment}_token");
+        return (string) $this->setting($invoice, "{$environment}_token");
     }
 
-    private function environment(): string
+    private function environment(Invoice $invoice): string
     {
-        return config('fbr.environment') === 'production' ? 'production' : 'sandbox';
+        return $this->setting($invoice, 'environment') === 'production' ? 'production' : 'sandbox';
+    }
+
+    private function enabled(Invoice $invoice): bool
+    {
+        $value = CompanySetting::getSetting('fbr_enabled', $invoice->company_id);
+
+        if ($value === null) {
+            return (bool) config('fbr.enabled');
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    private function setting(Invoice $invoice, string $key): mixed
+    {
+        $this->companySettings[$invoice->company_id] ??= CompanySetting::getAllSettings($invoice->company_id);
+
+        $value = $this->companySettings[$invoice->company_id]->get("fbr_{$key}");
+
+        return blank($value) ? config("fbr.{$key}") : $value;
     }
 
     private function money(int $amount): float
