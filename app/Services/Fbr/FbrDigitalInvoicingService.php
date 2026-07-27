@@ -147,6 +147,7 @@ class FbrDigitalInvoicingService
             'totalValues' => $this->money($item->total + $item->tax),
             'valueSalesExcludingST' => $this->money($item->total),
             'salesTaxApplicable' => $this->money($item->tax),
+            'discount' => $this->money(0),
             'saleType' => $item->fbr_sale_type ?: $item->item?->fbr_sale_type ?: config('fbr.default_sale_type'),
             'fixedNotifiedValueOrRetailPrice' => $this->optionalMoney($item->fbr_fixed_notified_value ?? $item->item?->fbr_fixed_notified_value),
             'salesTaxWithheldAtSource' => $this->optionalMoney($item->fbr_sales_tax_withheld ?? $item->item?->fbr_sales_tax_withheld),

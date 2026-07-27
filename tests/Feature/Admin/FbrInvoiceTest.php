@@ -54,6 +54,7 @@ test('submits invoice payload to FBR and records response', function () {
             && $request['items'][0]['rate'] === '18%'
             && $request['items'][0]['valueSalesExcludingST'] === 1000.00
             && $request['items'][0]['salesTaxApplicable'] === 180.00
+            && $request['items'][0]['discount'] === 0.00
             && $request['items'][0]['fixedNotifiedValueOrRetailPrice'] === 1250.00
             && $request['items'][0]['salesTaxWithheldAtSource'] === 10.00
             && $request['items'][0]['furtherTax'] === 20.00
