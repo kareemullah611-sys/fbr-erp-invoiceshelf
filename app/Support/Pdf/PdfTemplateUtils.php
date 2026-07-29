@@ -33,6 +33,11 @@ class PdfTemplateUtils
      */
     public static function getFormattedTemplates($templateType, $imageFormat = 'base64')
     {
+        $customTemplatePath = sprintf('/%s', $templateType);
+
+        if (! Storage::disk('pdf_templates')->exists($customTemplatePath)) {
+            Storage::disk('pdf_templates')->makeDirectory($customTemplatePath);
+        }
 
         $files_native = array_map(function ($file) {
             return [
@@ -46,7 +51,7 @@ class PdfTemplateUtils
                 'path' => $file,
                 'custom' => true,
             ];
-        }, Storage::disk('pdf_templates')->files(sprintf('/%s', $templateType)));
+        }, Storage::disk('pdf_templates')->files($customTemplatePath));
 
         $files = array_merge($files_native, $files_custom);
         $files = array_filter($files, function ($file) {
