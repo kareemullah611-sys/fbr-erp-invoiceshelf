@@ -71,9 +71,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, reactive, watch } from 'vue'
+import { computed, ref, reactive, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useModalStore } from '../../../stores/modal.store'
+import { useUserStore } from '../../../stores/user.store'
+import { taxTypeService } from '../../../api/services/tax-type.service'
 import type { TaxType } from '../../../types/domain/tax'
 import type { Currency } from '../../../types/domain/currency'
 import type { DocumentFormData, DocumentTax } from './use-document-calculations'
@@ -108,16 +110,11 @@ const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
 const modalStore = useModalStore()
-
-// We assume these stores are available globally or injected
-// In the v2 arch, we'll use a lighter approach
-const taxTypes = computed<TaxType[]>(() => {
-  // Access taxTypeStore through the store's taxTypes or a global store
-  return (window as Record<string, unknown>).__taxTypes as TaxType[] ?? []
-})
+const userStore = useUserStore()
+const taxTypes = ref<TaxType[]>([])
 
 const canAddTax = computed(() => {
-  return (window as Record<string, unknown>).__userHasAbility?.(props.ability) ?? false
+  return props.ability ? userStore.hasAbilities(props.ability) : false
 })
 
 const selectedTax = ref<TaxType | null>(null)
@@ -174,12 +171,23 @@ watch(
 )
 
 // Initialize selected tax if editing
-if (props.taxData.tax_type_id > 0) {
-  selectedTax.value =
-    taxTypes.value.find((_type) => _type.id === props.taxData.tax_type_id) ?? null
-}
+onMounted(fetchTaxTypes)
 
 updateRowTax()
+
+async function fetchTaxTypes(): Promise<void> {
+  try {
+    const response = await taxTypeService.list({ limit: 'all' as unknown as number })
+    taxTypes.value = response.data
+
+    if (props.taxData.tax_type_id > 0) {
+      selectedTax.value =
+        taxTypes.value.find((_type) => _type.id === props.taxData.tax_type_id) ?? null
+    }
+  } catch {
+    taxTypes.value = []
+  }
+}
 
 function onSelectTax(val: TaxType): void {
   localTax.calculation_type = val.calculation_type
@@ -212,6 +220,7 @@ function openTaxModal(): void {
     componentName: 'TaxTypeModal',
     data: { itemIndex: props.itemIndex, taxIndex: props.index },
     size: 'sm',
+    refreshData: fetchTaxTypes,
   })
 }
 
