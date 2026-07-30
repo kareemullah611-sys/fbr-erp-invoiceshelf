@@ -183,6 +183,52 @@
               />
             </td>
           </tr>
+
+          <tr>
+            <td class="px-5 pb-4 text-left align-top" />
+            <td colspan="4" class="px-5 pb-4 text-left align-top">
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <BaseInputGroup
+                  label="FBR HS Code"
+                  :error="v$.fbr_hs_code.$error && v$.fbr_hs_code.$errors[0].$message"
+                >
+                  <BaseInput
+                    v-model="fbrHsCode"
+                    :invalid="v$.fbr_hs_code.$error"
+                    :content-loading="loading"
+                    placeholder="8311.1000"
+                    @input="v$.fbr_hs_code.$touch()"
+                  />
+                </BaseInputGroup>
+
+                <BaseInputGroup
+                  label="FBR UOM"
+                  :error="v$.fbr_uom.$error && v$.fbr_uom.$errors[0].$message"
+                >
+                  <BaseInput
+                    v-model="fbrUom"
+                    :invalid="v$.fbr_uom.$error"
+                    :content-loading="loading"
+                    placeholder="KG"
+                    @input="v$.fbr_uom.$touch()"
+                  />
+                </BaseInputGroup>
+
+                <BaseInputGroup
+                  label="FBR Sale Type"
+                  :error="v$.fbr_sale_type.$error && v$.fbr_sale_type.$errors[0].$message"
+                >
+                  <BaseInput
+                    v-model="fbrSaleType"
+                    :invalid="v$.fbr_sale_type.$error"
+                    :content-loading="loading"
+                    placeholder="Goods at standard rate (default)"
+                    @input="v$.fbr_sale_type.$touch()"
+                  />
+                </BaseInputGroup>
+              </div>
+            </td>
+          </tr>
         </tbody>
       </table>
     </td>
@@ -259,6 +305,27 @@ const price = computed<number>({
   },
 })
 
+const fbrHsCode = computed<string>({
+  get: () => String(props.itemData.fbr_hs_code ?? ''),
+  set: (newValue: string) => {
+    updateItemAttribute('fbr_hs_code', newValue.trim() || null)
+  },
+})
+
+const fbrUom = computed<string>({
+  get: () => String(props.itemData.fbr_uom ?? ''),
+  set: (newValue: string) => {
+    updateItemAttribute('fbr_uom', newValue.trim() || null)
+  },
+})
+
+const fbrSaleType = computed<string>({
+  get: () => String(props.itemData.fbr_sale_type ?? ''),
+  set: (newValue: string) => {
+    updateItemAttribute('fbr_sale_type', newValue.trim() || null)
+  },
+})
+
 const subtotal = computed<number>(() => {
   return Math.round(props.itemData.price * props.itemData.quantity)
 })
@@ -331,6 +398,19 @@ const rules = {
   },
   description: {
     maxLength: helpers.withMessage(t('validation.notes_maxlength'), maxLength(65000)),
+  },
+  fbr_hs_code: {
+    required: helpers.withMessage('FBR HS code is required.', required),
+    hsCode: helpers.withMessage(
+      'Use FBR HS code format like 8311.1000.',
+      helpers.regex(/^\d{4}\.\d{4}$/),
+    ),
+  },
+  fbr_uom: {
+    required: helpers.withMessage('FBR UOM is required.', required),
+  },
+  fbr_sale_type: {
+    required: helpers.withMessage('FBR sale type is required.', required),
   },
 }
 

@@ -71,7 +71,7 @@ class FbrDigitalInvoicingService
 
     private function send(Invoice $invoice, string $action): FbrInvoiceSubmission
     {
-        $invoice->loadMissing(['company', 'customer.billingAddress', 'items.item', 'items.taxes']);
+        $invoice->loadMissing(['company', 'customer.billingAddress', 'items.item', 'items.taxes', 'taxes']);
 
         $environment = $this->environment($invoice);
         $payload = $this->payload($invoice, $environment);
@@ -101,7 +101,7 @@ class FbrDigitalInvoicingService
 
     private function buildPayload(Invoice $invoice, string $environment): array
     {
-        $invoice->loadMissing(['company', 'customer.billingAddress', 'items.item', 'items.taxes']);
+        $invoice->loadMissing(['company', 'customer.billingAddress', 'items.item', 'items.taxes', 'taxes']);
 
         if ($invoice->items->isEmpty()) {
             throw ValidationException::withMessages([
@@ -142,30 +142,66 @@ class FbrDigitalInvoicingService
 
     private function itemPayload(Invoice $invoice, InvoiceItem $item): array
     {
-        $tax = $item->taxes->first();
+        $tax = $item->taxes->first() ?: $invoice->taxes->first();
         $rate = $tax?->percent !== null ? rtrim(rtrim(number_format($tax->percent, 2, '.', ''), '0'), '.').'%' : null;
+        $discount = $this->lineDiscount($invoice, $item);
+        $valueSalesExcludingST = max(0, $item->total - $discount);
+        $salesTaxApplicable = $this->lineSalesTax($invoice, $item, $valueSalesExcludingST, $tax?->percent);
+        $furtherTax = $item->fbr_further_tax ?? $item->item?->fbr_further_tax;
+        $extraTax = $item->fbr_extra_tax ?? $item->item?->fbr_extra_tax;
+        $fedPayable = $item->fbr_fed_payable ?? $item->item?->fbr_fed_payable;
 
         $payload = [
-            'hsCode' => $item->fbr_hs_code ?: $item->item?->fbr_hs_code ?: $this->setting($invoice, 'default_hs_code'),
+            'hsCode' => $item->fbr_hs_code ?: $item->item?->fbr_hs_code,
             'productDescription' => $item->name,
             'rate' => $rate,
-            'uoM' => $item->fbr_uom ?: $item->unit_name ?: $item->item?->fbr_uom ?: $this->setting($invoice, 'default_uom'),
+            'uoM' => $item->fbr_uom ?: $item->unit_name ?: $item->item?->fbr_uom,
             'quantity' => (float) $item->quantity,
-            'totalValues' => $this->money($item->total + $item->tax),
-            'valueSalesExcludingST' => $this->money($item->total),
-            'salesTaxApplicable' => $this->money($item->tax),
-            'discount' => $this->money(0),
-            'saleType' => $item->fbr_sale_type ?: $item->item?->fbr_sale_type ?: $this->setting($invoice, 'default_sale_type'),
+            'totalValues' => $this->money($valueSalesExcludingST + $salesTaxApplicable + (int) ($furtherTax ?? 0) + (int) ($extraTax ?? 0) + (int) ($fedPayable ?? 0)),
+            'valueSalesExcludingST' => $this->money($valueSalesExcludingST),
+            'salesTaxApplicable' => $this->money($salesTaxApplicable),
+            'discount' => $this->money($discount),
+            'saleType' => $item->fbr_sale_type ?: $item->item?->fbr_sale_type,
             'fixedNotifiedValueOrRetailPrice' => $this->optionalMoney($item->fbr_fixed_notified_value ?? $item->item?->fbr_fixed_notified_value),
             'salesTaxWithheldAtSource' => $this->optionalMoney($item->fbr_sales_tax_withheld ?? $item->item?->fbr_sales_tax_withheld),
-            'furtherTax' => $this->optionalMoney($item->fbr_further_tax ?? $item->item?->fbr_further_tax),
-            'extraTax' => $this->optionalMoney($item->fbr_extra_tax ?? $item->item?->fbr_extra_tax),
-            'fedPayable' => $this->optionalMoney($item->fbr_fed_payable ?? $item->item?->fbr_fed_payable),
+            'furtherTax' => $this->optionalMoney($furtherTax),
+            'extraTax' => $this->optionalMoney($extraTax),
+            'fedPayable' => $this->optionalMoney($fedPayable),
             'sroScheduleNo' => $item->fbr_sro_no ?: $item->item?->fbr_sro_no ?: null,
             'sroItemSerialNo' => $item->fbr_sro_item_no ?: $item->item?->fbr_sro_item_no ?: null,
         ];
 
         return array_filter($payload, fn ($value) => $value !== null);
+    }
+
+    private function lineDiscount(Invoice $invoice, InvoiceItem $item): int
+    {
+        if (strtoupper((string) $invoice->discount_per_item) === 'YES') {
+            return (int) $item->discount_val;
+        }
+
+        if ($invoice->discount_val <= 0 || $invoice->sub_total <= 0) {
+            return 0;
+        }
+
+        return (int) round(((int) $item->total / (int) $invoice->sub_total) * (int) $invoice->discount_val);
+    }
+
+    private function lineSalesTax(Invoice $invoice, InvoiceItem $item, int $valueSalesExcludingST, ?float $percent): int
+    {
+        if ((int) $item->tax > 0) {
+            return (int) $item->tax;
+        }
+
+        if ($percent !== null) {
+            return (int) round($valueSalesExcludingST * ($percent / 100));
+        }
+
+        if ($invoice->tax <= 0 || $invoice->sub_total <= 0) {
+            return 0;
+        }
+
+        return (int) round(($valueSalesExcludingST / (int) $invoice->sub_total) * (int) $invoice->tax);
     }
 
     private function storeSubmission(Invoice $invoice, string $environment, string $action, array $payload, Response $response): FbrInvoiceSubmission
@@ -243,8 +279,6 @@ class FbrDigitalInvoicingService
             'seller_ntn' => 'FBR_SELLER_NTN',
             'seller_province' => 'FBR_SELLER_PROVINCE',
             'seller_address' => 'FBR_SELLER_ADDRESS',
-            'default_hs_code' => 'FBR_DEFAULT_HS_CODE',
-            'default_uom' => 'FBR_DEFAULT_UOM',
             "{$environment}_token" => strtoupper("FBR_{$environment}_TOKEN"),
         ];
 

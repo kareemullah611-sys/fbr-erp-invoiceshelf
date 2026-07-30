@@ -103,6 +103,9 @@ test('update item', function () {
     $item = Item::factory()->create();
 
     $update_item = Item::factory()->raw([
+        'fbr_hs_code' => '8311.1000',
+        'fbr_uom' => 'KG',
+        'fbr_sale_type' => 'Goods at standard rate (default)',
         'taxes' => [
             Tax::factory()->raw(),
         ],
@@ -164,6 +167,9 @@ test('search items', function () {
 
 test('create item with fixed amount tax', function () {
     $item = Item::factory()->raw([
+        'fbr_hs_code' => '8311.1000',
+        'fbr_uom' => 'KG',
+        'fbr_sale_type' => 'Goods at standard rate (default)',
         'taxes' => [
             Tax::factory()->raw([
                 'calculation_type' => 'fixed',

@@ -2,410 +2,358 @@
 <html>
 
 <head>
-    <title>@lang('pdf_invoice_label') - {{ $invoice->invoice_number }}</title>
+    <title>FBR Digital Invoice - {{ $invoice->invoice_number }}</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 
-@include("app.pdf.partials.fonts")
+    @include("app.pdf.partials.fonts")
+
+    @php
+        $company = $invoice->company;
+        $customer = $invoice->customer;
+        $currency = $customer->currency;
+        $fbrSubmission = $invoice->latestFbrSubmission ?: $invoice->fbrSubmissions()->latest()->first();
+        $sellerName = \App\Models\CompanySetting::getSetting('fbr_seller_business_name', $invoice->company_id) ?: $company->name;
+        $sellerNtn = \App\Models\CompanySetting::getSetting('fbr_seller_ntn', $invoice->company_id) ?: $company->tax_id ?: $company->vat_id;
+        $sellerAddress = \App\Models\CompanySetting::getSetting('fbr_seller_address', $invoice->company_id) ?: strip_tags((string) $company_address);
+        $buyerName = $customer->company_name ?: $customer->name;
+        $buyerTaxId = $customer->fbr_ntn ?: $customer->fbr_cnic ?: $customer->tax_id;
+        $buyerAddress = strip_tags((string) $billing_address);
+        $money = fn ($amount) => format_money_pdf((int) $amount, $currency);
+        $plainMoney = fn ($amount) => number_format(((int) $amount) / 100, 2);
+        $itemTax = function ($item) use ($invoice) {
+            $tax = $item->taxes->first() ?: $invoice->taxes->first();
+
+            return [
+                'percent' => $tax?->percent,
+                'amount' => (int) ($item->tax ?: ($tax?->amount ?? 0)),
+            ];
+        };
+        $extraLineTax = fn ($item) => (int) ($item->fbr_further_tax ?? 0) + (int) ($item->fbr_extra_tax ?? 0) + (int) ($item->fbr_fed_payable ?? 0);
+        $grandTax = (int) $invoice->tax + $invoice->items->sum(fn ($item) => $extraLineTax($item));
+        $grandTotal = (int) $invoice->sub_total - (int) $invoice->discount_val + $grandTax;
+        $amountWords = number_format($grandTotal / 100, 2).' Only';
+
+        if (class_exists(\NumberFormatter::class)) {
+            $formatter = new \NumberFormatter('en', \NumberFormatter::SPELLOUT);
+            $amountWords = ucfirst($formatter->format((int) round($grandTotal / 100))).' Only';
+        }
+    @endphp
 
     <style type="text/css">
-        /* -- Base -- */
+        @page {
+            margin: 28px 32px;
+        }
+
         body {
+            color: #252b33;
+            font-family: DejaVu Sans, sans-serif;
+            font-size: 11px;
+            line-height: 1.35;
+            margin: 0;
         }
 
-        html {
-            margin: 0px;
-            padding: 0px;
-            margin-top: 50px;
-        }
-
-        .text-center {
+        .brand {
+            color: #08427d;
+            font-size: 34px;
+            font-weight: 700;
+            letter-spacing: 1px;
             text-align: center;
+            text-transform: uppercase;
         }
 
-        hr {
-            margin: 0 30px 0 30px;
-            color: rgba(0, 0, 0, 0.2);
-            border: 0.5px solid #EAF1FB;
-        }
-
-        /* -- Header -- */
-
-        .header-bottom-divider {
-            color: rgba(0, 0, 0, 0.2);
-            top: 90px;
-            left: 0px;
-            width: 100%;
-            margin-left: 0%;
-        }
-
-        .header-container {
-            position: absolute;
-            width: 100%;
-            height: 90px;
-            left: 0px;
-            top: -50px;
-        }
-
-        .header-logo {
-            margin-top: 20px;
-            padding-bottom: 20px;
-            text-transform: capitalize;
-            color: #7675ff;
-        }
-
-        .content-wrapper {
-            display: block;
-            margin-top: 0px;
-            padding-top: 16px;
-            padding-bottom: 20px;
-        }
-
-        .company-address-container {
-            padding-top: 15px;
-            padding-left: 30px;
-            float: left;
-            width: 30%;
-            margin-bottom: 2px;
-        }
-
-        .company-address-container h1 {
-            font-size: 15px;
-            line-height: 22px;
-            letter-spacing: 0.05em;
-            margin-bottom: 0px;
-            margin-top: 10px;
-        }
-
-        .company-address {
-            margin-top: 16px;
-            text-align: left;
-            font-size: 12px;
-            line-height: 15px;
-            color: #595959;
-            width: 280px;
-            word-wrap: break-word;
-        }
-
-        .invoice-details-container {
-            float: right;
-            padding: 10px 30px 0 0;
+        .top-meta {
             margin-top: 18px;
+            width: 100%;
         }
 
-        .attribute-label {
-            font-size: 12px;
-            line-height: 18px;
-            padding-right: 40px;
-            text-align: left;
-            color: #55547A;
+        .top-meta td {
+            vertical-align: top;
         }
 
-        .attribute-value {
-            font-size: 12px;
-            line-height: 18px;
+        .right {
             text-align: right;
         }
 
-        /* -- Shipping -- */
-
-        .shipping-address-container {
-            float: right;
-            padding-left: 40px;
-            width: 160px;
+        .blue-line {
+            border-top: 2px solid #0d56a6;
+            margin: 8px 0 18px;
         }
 
-        .shipping-address {
-            font-size: 12px;
-            line-height: 15px;
-            color: #595959;
-            padding: 45px 0px 0px 40px;
-            margin: 0px;
-            width: 160px;
-            word-wrap: break-word;
+        .panel-table {
+            width: 100%;
         }
 
-        /* -- Billing -- */
-
-        .billing-address-container {
-            padding-top: 50px;
-            float: left;
-            padding-left: 30px;
+        .panel-table td {
+            vertical-align: top;
+            width: 50%;
         }
 
-        .billing-address-label {
-            font-size: 12px;
-            line-height: 18px;
-            padding: 0px;
-            margin-top: 27px;
-            margin-bottom: 0px;
-        }
-
-        .billing-address-name {
-            max-width: 160px;
+        .section-title {
+            color: #0d56a6;
             font-size: 15px;
-            line-height: 22px;
-            padding: 0px;
-            margin: 0px;
+            font-weight: 700;
+            margin-bottom: 8px;
         }
 
-        .billing-address {
-            font-size: 12px;
-            line-height: 15px;
-            color: #595959;
-            padding: 45px 0px 0px 30px;
-            margin: 0px;
-            width: 160px;
-            word-wrap: break-word;
+        .info-line {
+            margin-bottom: 4px;
         }
 
-        /* -- Items Table -- */
-
-        .items-table {
-            margin-top: 35px;
-            padding: 0px 30px 10px 30px;
-            page-break-before: avoid;
-            page-break-after: auto;
+        .label {
+            font-weight: 700;
         }
 
-        .items-table hr {
-            height: 0.1px;
+        .items-title {
+            color: #0d56a6;
+            font-size: 16px;
+            font-weight: 700;
+            margin: 22px 0 8px;
         }
 
-        .item-table-heading {
-            font-size: 13.5;
-            text-align: center;
-            color: rgba(0, 0, 0, 0.85);
-            padding: 5px;
-            color: #55547A;
+        .items {
+            border-collapse: collapse;
+            width: 100%;
         }
 
-        tr.item-table-heading-row th {
-            border-bottom: 0.620315px solid #E8E8E8;
-            font-size: 12px;
-            line-height: 18px;
-        }
-
-        tr.item-row td {
-            font-size: 12px;
-            line-height: 18px;
-        }
-
-        .item-cell {
-            font-size: 13;
-            text-align: center;
-            padding: 5px;
-            padding-top: 10px;
-            color: #040405;
-        }
-
-        .item-description {
-            color: #595959;
+        .items th {
+            background: #0d56a6;
+            border: 1px solid #0d56a6;
+            color: #ffffff;
             font-size: 9px;
-            line-height: 12px;
-            display: block;
+            padding: 6px 4px;
+            text-align: center;
         }
 
-        /* -- Total Display Table -- */
-
-        .total-display-container {
-            padding: 0 25px;
+        .items td {
+            border: 1px solid #d7dce3;
+            font-size: 9px;
+            padding: 6px 4px;
+            vertical-align: top;
         }
 
-        .total-display-table {
-            border-top: none;
-            page-break-inside: avoid;
-            page-break-before: auto;
-            page-break-after: auto;
-            margin-top: 20px;
-            float: right;
-            width: auto;
-        }
-
-        .total-table-attribute-label {
-            font-size: 13px;
-            color: #55547A;
-            text-align: left;
-            padding-left: 10px;
-        }
-
-        .total-table-attribute-value {
-            font-weight: bold;
+        .items .num {
             text-align: right;
-            font-size: 13px;
-            color: #040405;
-            padding-right: 10px;
-            padding-top: 2px;
-            padding-bottom: 2px;
-        }
-
-        .total-border-left {
-            border: 1px solid #E8E8E8 !important;
-            border-right: 0px !important;
-            padding-top: 0px;
-            padding: 8px !important;
-        }
-
-        .total-border-right {
-            border: 1px solid #E8E8E8 !important;
-            border-left: 0px !important;
-            padding-top: 0px;
-            padding: 8px !important;
-        }
-
-        /* -- Notes -- */
-
-        .notes {
-            font-size: 12px;
-            color: #595959;
-            margin-top: 15px;
-            margin-left: 30px;
-            width: 442px;
-            text-align: left;
-            page-break-inside: avoid;
-        }
-
-        .notes-label {
-            font-size: 15px;
-            line-height: 22px;
-            letter-spacing: 0.05em;
-            color: #040405;
-            width: 108px;
             white-space: nowrap;
-            height: 19.87px;
-            padding-bottom: 10px;
         }
 
-        /* -- Helpers -- */
-
-        .text-primary {
-            color: #5851DB;
+        .totals-wrap {
+            margin-top: 20px;
+            width: 100%;
         }
 
-
-        table .text-left {
-            text-align: left;
+        .totals {
+            border-collapse: collapse;
+            float: right;
+            width: 48%;
         }
 
-        table .text-right {
-            text-align: right;
+        .totals td {
+            border: 1px solid #d7dce3;
+            padding: 7px 9px;
         }
 
-        .border-0 {
-            border: none;
+        .totals .total-row td {
+            color: #0d56a6;
+            font-size: 13px;
+            font-weight: 700;
         }
 
-        .py-2 {
-            padding-top: 2px;
-            padding-bottom: 2px;
+        .watermark {
+            color: #0d56a6;
+            font-size: 66px;
+            font-weight: 700;
+            left: 150px;
+            opacity: 0.06;
+            position: fixed;
+            top: 385px;
+            transform: rotate(-28deg);
+            z-index: -1;
         }
 
-        .py-8 {
-            padding-top: 8px;
-            padding-bottom: 8px;
+        .signature {
+            clear: both;
+            padding-top: 70px;
+            width: 48%;
         }
 
-        .py-3 {
-            padding: 3px 0;
+        .signature-line {
+            border-top: 1px solid #252b33;
+            padding-top: 7px;
+            text-align: center;
         }
 
-        .pr-20 {
-            padding-right: 20px;
+        .words {
+            margin-top: 20px;
         }
 
-        .pr-10 {
-            padding-right: 10px;
+        .verification {
+            margin-top: 22px;
+            text-align: center;
         }
 
-        .pl-20 {
-            padding-left: 20px;
+        .fbr-badge {
+            border: 2px solid #2ea44f;
+            border-radius: 8px;
+            color: #2d3748;
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 8px 14px;
         }
 
-        .pl-10 {
-            padding-left: 10px;
+        .qr {
+            border: 2px solid #252b33;
+            display: inline-block;
+            font-size: 9px;
+            height: 76px;
+            margin-left: 14px;
+            padding-top: 24px;
+            text-align: center;
+            vertical-align: middle;
+            width: 76px;
         }
 
-        .pl-0 {
-            padding-left: 0;
+        .footer {
+            border-top: 2px solid #0d56a6;
+            bottom: 0;
+            color: #0d56a6;
+            font-size: 10px;
+            left: 0;
+            padding-top: 6px;
+            position: fixed;
+            text-align: center;
+            width: 100%;
         }
-
     </style>
-
 </head>
 
 <body>
-    <div class="header-container">
-        <table width="100%">
+    <div class="watermark">{{ $sellerName }}</div>
+
+    <div class="brand">{{ $sellerName }}</div>
+
+    <table class="top-meta">
+        <tr>
+            <td><span class="label">Sales Invoice No:</span> {{ $invoice->invoice_number }}</td>
+            <td class="right">
+                <div><span class="label">Date:</span> {{ $invoice->invoice_date->format('d/m/Y') }}</div>
+                <div><span class="label">Created At:</span> {{ $invoice->created_at->format('l, F d, Y / h:i A') }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="blue-line"></div>
+
+    <table class="panel-table">
+        <tr>
+            <td>
+                <div class="section-title">Bill To</div>
+                <div class="info-line"><span class="label">Name:</span> {{ $buyerName ?: 'N/A' }}</div>
+                <div class="info-line"><span class="label">NTN/CNIC:</span> {{ $buyerTaxId ?: 'N/A' }}</div>
+                <div class="info-line"><span class="label">Mobile:</span> {{ $customer->phone ?: 'N/A' }}</div>
+                <div class="info-line"><span class="label">Address:</span> {{ $buyerAddress ?: 'N/A' }}</div>
+                <div class="info-line"><span class="label">PO#:</span> {{ $invoice->reference_number ?: 'N/A' }}</div>
+            </td>
+            <td class="right">
+                <div class="section-title">Seller Info</div>
+                <div class="info-line"><span class="label">FBR Invoice No:</span> {{ $fbrSubmission?->fbr_invoice_number ?: 'Pending' }}</div>
+                <div class="info-line"><span class="label">Seller NTN #:</span> {{ $sellerNtn ?: 'N/A' }}</div>
+                <div class="info-line"><span class="label">Seller Address:</span> {{ $sellerAddress ?: 'N/A' }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="items-title">Items</div>
+
+    <table class="items">
+        <thead>
             <tr>
-                <td class="text-center">
-                    @if ($logo)
-                        <img class="header-logo" style="height:50px" src="{{ \App\Services\Pdf\ImageUtils::toBase64Src($logo) }}" alt="Company Logo">
-                    @else
-                        @if ($invoice->customer->company)
-                            <h2 class="header-logo"> {{ $invoice->customer->company->name }}</h2>
+                <th width="4%">Sr</th>
+                <th width="18%">Name</th>
+                <th width="10%">Code</th>
+                <th width="9%">Price</th>
+                <th width="7%">Qty</th>
+                <th width="8%">UOM</th>
+                <th width="7%">Tax %</th>
+                <th width="8%">Ext Tax</th>
+                <th width="7%">FED</th>
+                <th width="8%">Held Tax</th>
+                <th width="8%">Tax Charged</th>
+                <th width="10%">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach ($invoice->items as $item)
+                @php
+                    $tax = $itemTax($item);
+                    $lineExtraTax = $extraLineTax($item);
+                    $lineTotal = (int) $item->total + (int) $tax['amount'] + $lineExtraTax;
+                @endphp
+                <tr>
+                    <td class="num">{{ $loop->iteration }}</td>
+                    <td>
+                        {{ $item->name }}
+                        @if ($item->description)
+                            <br><span>{{ $item->description }}</span>
                         @endif
-                    @endif
-                </td>
+                    </td>
+                    <td>{{ $item->fbr_hs_code ?: $item->item?->fbr_hs_code ?: 'Missing' }}</td>
+                    <td class="num">{!! $money($item->price) !!}</td>
+                    <td class="num">{{ rtrim(rtrim(number_format($item->quantity, 2), '0'), '.') }}</td>
+                    <td>{{ $item->fbr_uom ?: $item->unit_name ?: $item->item?->fbr_uom ?: 'Missing' }}</td>
+                    <td class="num">{{ $tax['percent'] !== null ? rtrim(rtrim(number_format($tax['percent'], 2), '0'), '.').'%' : 'Missing' }}</td>
+                    <td class="num">{!! $money((int) ($item->fbr_extra_tax ?? 0) + (int) ($item->fbr_further_tax ?? 0)) !!}</td>
+                    <td class="num">{!! $money($item->fbr_fed_payable ?? 0) !!}</td>
+                    <td class="num">{!! $money($item->fbr_sales_tax_withheld ?? 0) !!}</td>
+                    <td class="num">{!! $money($tax['amount']) !!}</td>
+                    <td class="num">{!! $money($lineTotal) !!}</td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+
+    <div class="totals-wrap">
+        <table class="totals">
+            <tr>
+                <td>Total Qty</td>
+                <td class="right">{{ rtrim(rtrim(number_format($invoice->items->sum('quantity'), 2), '0'), '.') }}</td>
+            </tr>
+            <tr>
+                <td>Subtotal (Excluding Tax)</td>
+                <td class="right">{!! $money($invoice->sub_total - $invoice->discount_val) !!}</td>
+            </tr>
+            <tr>
+                <td>Standard Tax</td>
+                <td class="right">{!! $money($invoice->tax) !!}</td>
+            </tr>
+            <tr>
+                <td>Grand Total Tax</td>
+                <td class="right">{!! $money($grandTax) !!}</td>
+            </tr>
+            <tr class="total-row">
+                <td>Grand Total (Bill Amount)</td>
+                <td class="right">{!! $money($grandTotal) !!}</td>
             </tr>
         </table>
-        <hr class="header-bottom-divider" style="border: 0.620315px solid #E8E8E8;" />
     </div>
 
+    <div class="signature">
+        <div class="signature-line">Signature & Stamp</div>
+    </div>
 
-    <div class="content-wrapper">
-        <div style="padding-top: 30px">
-            <div class="company-address-container company-address">
-                {!! $company_address !!}
-            </div>
+    <div class="words"><span class="label">Amount in Words:</span> {{ $amountWords }}</div>
 
-            <div class="invoice-details-container">
-                <table>
-                    <tr>
-                        <td class="attribute-label">@lang('pdf_invoice_number')</td>
-                        <td class="attribute-value"> &nbsp;{{ $invoice->invoice_number }}</td>
-                    </tr>
-                    <tr>
-                        <td class="attribute-label">@lang('pdf_invoice_date')</td>
-                        <td class="attribute-value"> &nbsp;{{ $invoice->formattedInvoiceDate }}</td>
-                    </tr>
-                    <tr>
-                        <td class="attribute-label">@lang('pdf_invoice_due_date')</td>
-                        <td class="attribute-value"> &nbsp;{{ $invoice->formattedDueDate }}</td>
-                    </tr>
-                </table>
-            </div>
-
-            <div style="clear: both;"></div>
+    <div class="verification">
+        <span class="fbr-badge">FBR DIGITAL INVOICING SYSTEM</span>
+        <span class="qr">QR CODE<br>{{ $fbrSubmission?->fbr_invoice_number ?: $invoice->invoice_number }}</span>
+        <div style="margin-top: 8px;">
+            For Verification: Scan QR Code. Invoice No:
+            {{ $fbrSubmission?->fbr_invoice_number ?: $invoice->invoice_number }}
         </div>
+    </div>
 
-        <div class="billing-address-container billing-address">
-            @if ($billing_address)
-                <b>@lang('pdf_bill_to')</b> <br>
-
-                {!! $billing_address !!}
-            @endif
-        </div>
-
-        <div class="shipping-address-container shipping-address" @if ($billing_address !== '<br />') style="float:left;" @else style="display:block; float:left: padding-left: 0px;" @endif>
-            @if ($shipping_address)
-                <b>@lang('pdf_ship_to')</b> <br>
-
-                {!! $shipping_address !!}
-            @endif
-        </div>
-
-        <div style="position: relative; clear: both;">
-            @include('app.pdf.invoice.partials.table')
-        </div>
-
-        <div class="notes">
-            @if ($notes)
-                <div class="notes-label">
-                    @lang('pdf_notes')
-                </div>
-
-                {!! $notes !!}
-            @endif
-        </div>
+    <div class="footer">
+        FBR compliant digital invoicing powered by {{ $sellerName }}
     </div>
 </body>
 

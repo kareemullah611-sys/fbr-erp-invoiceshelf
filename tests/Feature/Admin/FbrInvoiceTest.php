@@ -54,6 +54,7 @@ test('submits invoice payload to FBR and records response', function () {
             && $request['items'][0]['uoM'] === 'Numbers, pieces, units'
             && $request['items'][0]['saleType'] === 'Goods at standard rate (default)'
             && $request['items'][0]['rate'] === '18%'
+            && $request['items'][0]['totalValues'] === 1270.00
             && $request['items'][0]['valueSalesExcludingST'] === 1000.00
             && $request['items'][0]['salesTaxApplicable'] === 180.00
             && $request['items'][0]['discount'] === 0.00
@@ -73,6 +74,90 @@ test('submits invoice payload to FBR and records response', function () {
         'status' => 'SUBMITTED',
         'fbr_invoice_number' => 'FBR-001',
     ]);
+});
+
+test('calculates FBR item values from document level tax', function () {
+    configureFbr();
+
+    Http::fake([
+        'gw.fbr.gov.pk/*' => Http::response(['invoiceNumber' => 'FBR-7316'], 200),
+    ]);
+
+    $customer = Customer::factory()->create([
+        'company_id' => $this->company->id,
+        'fbr_ntn' => '1000000000000',
+        'fbr_registration_type' => 'Registered',
+        'company_name' => 'Buyer Pvt Ltd',
+    ]);
+
+    Address::factory()->create([
+        'company_id' => $this->company->id,
+        'customer_id' => $customer->id,
+        'type' => Address::BILLING_TYPE,
+        'state' => 'Punjab',
+        'city' => 'Lahore',
+        'address_street_1' => 'Main Road',
+    ]);
+
+    $invoice = Invoice::factory()->create([
+        'company_id' => $this->company->id,
+        'customer_id' => $customer->id,
+        'invoice_date' => '2026-07-30',
+        'invoice_number' => 'INV-7316',
+        'tax_per_item' => 'NO',
+        'discount_per_item' => 'NO',
+        'discount_type' => 'fixed',
+        'discount' => 0,
+        'discount_val' => 0,
+        'sub_total' => 620000,
+        'tax' => 111600,
+        'total' => 731600,
+        'due_amount' => 731600,
+    ]);
+
+    InvoiceItem::factory()->create([
+        'company_id' => $this->company->id,
+        'invoice_id' => $invoice->id,
+        'name' => 'Welding electrodes',
+        'quantity' => 20,
+        'price' => 31000,
+        'total' => 620000,
+        'tax' => 0,
+        'unit_name' => 'KG',
+        'fbr_hs_code' => '8311.1000',
+        'fbr_uom' => 'KG',
+        'fbr_sale_type' => 'Goods at standard rate (default)',
+    ]);
+
+    $taxType = TaxType::factory()->create([
+        'company_id' => $this->company->id,
+        'percent' => 18,
+    ]);
+
+    Tax::factory()->create([
+        'company_id' => $this->company->id,
+        'invoice_id' => $invoice->id,
+        'tax_type_id' => $taxType->id,
+        'percent' => 18,
+        'amount' => 111600,
+    ]);
+
+    postJson("api/v1/invoices/{$invoice->id}/fbr/submit")
+        ->assertCreated()
+        ->assertJsonPath('data.status', 'SUBMITTED');
+
+    Http::assertSent(function ($request) {
+        return $request['invoiceRefNo'] === 'INV-7316'
+            && $request['items'][0]['hsCode'] === '8311.1000'
+            && $request['items'][0]['productDescription'] === 'Welding electrodes'
+            && $request['items'][0]['rate'] === '18%'
+            && $request['items'][0]['uoM'] === 'KG'
+            && $request['items'][0]['quantity'] === 20.0
+            && $request['items'][0]['valueSalesExcludingST'] === 6200.00
+            && $request['items'][0]['salesTaxApplicable'] === 1116.00
+            && $request['items'][0]['totalValues'] === 7316.00
+            && $request['items'][0]['discount'] === 0.00;
+    });
 });
 
 test('checks invoice readiness before FBR submission', function () {
@@ -164,10 +249,7 @@ test('does not use another company FBR settings', function () {
 });
 
 test('reports missing readiness data without calling FBR', function () {
-    configureFbr([
-        'fbr.default_hs_code' => null,
-        'fbr.default_uom' => null,
-    ]);
+    configureFbr();
 
     $customer = Customer::factory()->create([
         'company_id' => $this->company->id,
@@ -199,8 +281,7 @@ test('reports missing readiness data without calling FBR', function () {
         ->assertOk()
         ->assertJsonPath('data.ready', false)
         ->assertJsonPath('data.can_submit', false)
-        ->assertJsonPath('data.configured', false)
-        ->assertJsonPath('data.missing.0', 'FBR_DEFAULT_HS_CODE');
+        ->assertJsonPath('data.configured', true);
 
     expect($response->json('data.missing'))->toContain(
         'Customer tax ID / NTN-CNIC',
@@ -304,6 +385,9 @@ function createFbrReadyInvoice(int $companyId): Invoice
         'customer_id' => $customer->id,
         'invoice_date' => '2026-07-23',
         'invoice_number' => 'INV-001',
+        'discount_type' => 'fixed',
+        'discount' => 0,
+        'discount_val' => 0,
         'sub_total' => 100000,
         'total' => 118000,
         'tax' => 18000,

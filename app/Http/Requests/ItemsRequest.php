@@ -33,17 +33,18 @@ class ItemsRequest extends FormRequest
                 'nullable',
             ],
             'fbr_hs_code' => [
-                'nullable',
+                'required',
                 'string',
                 'max:255',
+                'regex:/^\d{4}\.\d{4}$/',
             ],
             'fbr_uom' => [
-                'nullable',
+                'required',
                 'string',
                 'max:255',
             ],
             'fbr_sale_type' => [
-                'nullable',
+                'required',
                 'string',
                 'max:255',
             ],
