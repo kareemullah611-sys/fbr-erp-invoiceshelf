@@ -127,6 +127,8 @@ import useVuelidate from '@vuelidate/core'
 import { useInvoiceStore } from '../store'
 import { useRecurringInvoiceStore } from '@/scripts/features/company/recurring-invoices/store'
 import { useCompanyStore } from '@/scripts/stores/company.store'
+import { useNotificationStore } from '@/scripts/stores/notification.store'
+import { handleApiError } from '@/scripts/utils/error-handling'
 import InvoiceBasicFields from '../components/InvoiceBasicFields.vue'
 import {
   DocumentItemsTable,
@@ -139,6 +141,7 @@ import {
 const invoiceStore = useInvoiceStore()
 const recurringInvoiceStore = useRecurringInvoiceStore()
 const companyStore = useCompanyStore()
+const notificationStore = useNotificationStore()
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
@@ -433,7 +436,17 @@ async function submitForm(): Promise<void> {
       router.push(`/admin/invoices/${response.data.data.id}/view`)
     }
   } catch (err) {
-    console.error(err)
+    const normalizedError = handleApiError(err)
+    const validationMessages = Object.entries(normalizedError.validationErrors)
+      .flatMap(([field, messages]) => messages.map((message) => `${field}: ${message}`))
+      .slice(0, 3)
+
+    notificationStore.showNotification({
+      type: 'error',
+      message: validationMessages.length
+        ? validationMessages.join(' ')
+        : normalizedError.message,
+    })
   }
 
   isSaving.value = false
