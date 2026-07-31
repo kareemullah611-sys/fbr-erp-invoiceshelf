@@ -76,6 +76,28 @@ test('submits invoice payload to FBR and records response', function () {
     ]);
 });
 
+test('normalizes FBR NTN and CNIC identifiers before sending', function () {
+    configureFbr([
+        'seller_ntn' => '3611395-6',
+    ]);
+
+    Http::fake([
+        'gw.fbr.gov.pk/*' => Http::response(['invoiceNumber' => 'FBR-NORMALIZED'], 200),
+    ]);
+
+    $invoice = createFbrReadyInvoice($this->company->id);
+    $invoice->customer->forceFill([
+        'fbr_ntn' => '4763637-5',
+    ])->save();
+
+    postJson("api/v1/invoices/{$invoice->id}/fbr/submit")
+        ->assertCreated()
+        ->assertJsonPath('data.status', 'SUBMITTED');
+
+    Http::assertSent(fn ($request) => $request['sellerNTNCNIC'] === '3611395'
+        && $request['buyerNTNCNIC'] === '4763637');
+});
+
 test('calculates FBR item values from document level tax', function () {
     configureFbr();
 

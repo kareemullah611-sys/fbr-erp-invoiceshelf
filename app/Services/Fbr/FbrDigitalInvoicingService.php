@@ -132,11 +132,11 @@ class FbrDigitalInvoicingService
         $payload = [
             'invoiceType' => 'Sale Invoice',
             'invoiceDate' => Carbon::parse($invoice->invoice_date)->format('Y-m-d'),
-            'sellerNTNCNIC' => $this->setting($invoice, 'seller_ntn'),
+            'sellerNTNCNIC' => $this->taxIdentifier($this->setting($invoice, 'seller_ntn')),
             'sellerBusinessName' => $this->setting($invoice, 'seller_business_name') ?: $invoice->company->name,
             'sellerProvince' => $this->setting($invoice, 'seller_province'),
             'sellerAddress' => $this->setting($invoice, 'seller_address'),
-            'buyerNTNCNIC' => $invoice->customer?->fbr_ntn ?: $invoice->customer?->fbr_cnic ?: $invoice->customer?->tax_id ?: null,
+            'buyerNTNCNIC' => $this->taxIdentifier($invoice->customer?->fbr_ntn ?: $invoice->customer?->fbr_cnic ?: $invoice->customer?->tax_id ?: null),
             'buyerBusinessName' => $invoice->customer?->company_name ?: $invoice->customer?->name,
             'buyerProvince' => $buyerProvince,
             'buyerAddress' => $buyerAddressText ?: null,
