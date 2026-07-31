@@ -219,6 +219,20 @@ class InvoiceService
 
     public function getPdfData(Invoice $invoice)
     {
+        $invoice->loadMissing([
+            'company.address',
+            'customer.billingAddress',
+            'customer.shippingAddress',
+            'customer.currency',
+            'currency',
+            'items.item',
+            'items.taxes',
+            'taxes',
+            'latestFbrSubmission',
+            'fields.customField',
+            'customer.fields.customField',
+        ]);
+
         $taxes = collect();
 
         if ($invoice->tax_per_item === 'YES') {

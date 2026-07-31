@@ -15,6 +15,8 @@ use App\Services\Document\InvoiceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Markdown;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class InvoicesController extends Controller
 {
@@ -61,9 +63,17 @@ class InvoicesController extends Controller
             $this->invoiceService->send($invoice, $request->only(['subject', 'body']));
         }
 
-        GenerateInvoicePdfJob::dispatch($invoice);
+        try {
+            GenerateInvoicePdfJob::dispatch($invoice);
+        } catch (Throwable $exception) {
+            Log::warning('Invoice PDF generation failed after invoice save', [
+                'invoice_id' => $invoice->id,
+                'company_id' => $invoice->company_id,
+                'exception' => $exception->getMessage(),
+            ]);
+        }
 
-        return new InvoiceResource($invoice);
+        return new InvoiceResource($invoice->fresh(['customer', 'items.taxes', 'taxes', 'latestFbrSubmission']));
     }
 
     /**
@@ -92,9 +102,17 @@ class InvoicesController extends Controller
 
         $invoice = $this->invoiceService->update($invoice, $request);
 
-        GenerateInvoicePdfJob::dispatch($invoice, true);
+        try {
+            GenerateInvoicePdfJob::dispatch($invoice, true);
+        } catch (Throwable $exception) {
+            Log::warning('Invoice PDF generation failed after invoice update', [
+                'invoice_id' => $invoice->id,
+                'company_id' => $invoice->company_id,
+                'exception' => $exception->getMessage(),
+            ]);
+        }
 
-        return new InvoiceResource($invoice);
+        return new InvoiceResource($invoice->fresh(['customer', 'items.taxes', 'taxes', 'latestFbrSubmission']));
     }
 
     /**

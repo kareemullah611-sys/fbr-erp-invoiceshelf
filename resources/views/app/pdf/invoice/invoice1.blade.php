@@ -10,9 +10,15 @@
     @php
         $company = $invoice->company;
         $customer = $invoice->customer;
-        $currency = $customer?->currency;
-        $invoiceDate = \Carbon\Carbon::parse($invoice->invoice_date);
-        $createdAt = \Carbon\Carbon::parse($invoice->created_at);
+        $currency = $invoice->currency ?: $customer?->currency;
+
+        if (! $currency) {
+            $currencyId = \App\Models\CompanySetting::getSetting('currency', $invoice->company_id);
+            $currency = $currencyId ? \App\Models\Currency::find($currencyId) : null;
+        }
+
+        $invoiceDate = $invoice->invoice_date ? \Carbon\Carbon::parse($invoice->invoice_date) : now();
+        $createdAt = $invoice->created_at ? \Carbon\Carbon::parse($invoice->created_at) : now();
         $fbrSubmission = $invoice->latestFbrSubmission ?? $invoice->fbrSubmissions()->latest()->first();
         $sellerName = \App\Models\CompanySetting::getSetting('fbr_seller_business_name', $invoice->company_id) ?: ($company?->name ?: 'Seller');
         $sellerNtn = \App\Models\CompanySetting::getSetting('fbr_seller_ntn', $invoice->company_id) ?: ($company->tax_id ?? null) ?: ($company->vat_id ?? null);
@@ -20,7 +26,13 @@
         $buyerName = $customer?->company_name ?: $customer?->name;
         $buyerTaxId = $customer?->fbr_ntn ?: $customer?->fbr_cnic ?: $customer?->tax_id;
         $buyerAddress = strip_tags((string) $billing_address);
-        $money = fn ($amount) => format_money_pdf((int) $amount, $currency);
+        $money = function ($amount) use ($currency) {
+            if ($currency) {
+                return format_money_pdf((int) $amount, $currency);
+            }
+
+            return 'Rs '.number_format(((int) $amount) / 100, 2);
+        };
         $plainMoney = fn ($amount) => number_format(((int) $amount) / 100, 2);
         $itemTax = function ($item) use ($invoice) {
             $tax = $item->taxes->first() ?: $invoice->taxes->first();
@@ -289,14 +301,14 @@
                 @php
                     $tax = $itemTax($item);
                     $lineExtraTax = $extraLineTax($item);
-                    $lineTotal = (int) $item->total + (int) $tax['amount'] + $lineExtraTax;
+                    $lineTotal = (int) ($item->total ?? 0) + (int) $tax['amount'] + $lineExtraTax;
                 @endphp
                 <tr>
                     <td class="num">{{ $loop->iteration }}</td>
                     <td>
-                        {{ $item->name }}
+                        {{ $item->name ?: $item->item?->name ?: 'Item' }}
                         @if ($item->description)
-                            <br><span>{{ $item->description }}</span>
+                            <br><span>{!! nl2br(e($item->description)) !!}</span>
                         @endif
                     </td>
                     <td>{{ $item->fbr_hs_code ?: $item->item?->fbr_hs_code ?: 'Missing' }}</td>
