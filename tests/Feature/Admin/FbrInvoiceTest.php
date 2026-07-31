@@ -320,7 +320,7 @@ test('records successful FBR validation separately from final submission', funct
     ]);
 });
 
-test('omits blank optional FBR numeric fields from payload', function () {
+test('omits blank or zero optional FBR numeric fields from payload', function () {
     configureFbr();
 
     Http::fake([
@@ -330,11 +330,11 @@ test('omits blank optional FBR numeric fields from payload', function () {
     $invoice = createFbrReadyInvoice($this->company->id);
     $item = $invoice->items()->first();
     $item->forceFill([
-        'fbr_fixed_notified_value' => '',
-        'fbr_sales_tax_withheld' => '',
-        'fbr_further_tax' => '',
-        'fbr_extra_tax' => '',
-        'fbr_fed_payable' => '',
+        'fbr_fixed_notified_value' => 0,
+        'fbr_sales_tax_withheld' => 0,
+        'fbr_further_tax' => 0,
+        'fbr_extra_tax' => 0,
+        'fbr_fed_payable' => 0,
     ])->save();
 
     postJson("api/v1/invoices/{$invoice->id}/fbr/submit")

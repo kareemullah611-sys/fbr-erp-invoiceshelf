@@ -183,6 +183,12 @@ class FbrDigitalInvoicingService
             'sroItemSerialNo' => $item->fbr_sro_item_no ?: $item->item?->fbr_sro_item_no ?: null,
         ];
 
+        foreach ($this->optionalFbrAmountFields() as $field) {
+            if (! isset($payload[$field]) || ! is_numeric($payload[$field]) || (float) $payload[$field] <= 0) {
+                unset($payload[$field]);
+            }
+        }
+
         return array_filter($payload, fn ($value) => $value !== null);
     }
 
@@ -450,6 +456,17 @@ class FbrDigitalInvoicingService
         $amount = $this->optionalMinorAmount($amount);
 
         return $amount === null ? null : $this->money($amount);
+    }
+
+    private function optionalFbrAmountFields(): array
+    {
+        return [
+            'fixedNotifiedValueOrRetailPrice',
+            'salesTaxWithheldAtSource',
+            'furtherTax',
+            'extraTax',
+            'fedPayable',
+        ];
     }
 
     private function optionalMinorAmount(int|float|string|null $amount): ?int
