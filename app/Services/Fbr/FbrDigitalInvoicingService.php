@@ -174,8 +174,8 @@ class FbrDigitalInvoicingService
             'salesTaxApplicable' => $this->money($salesTaxApplicable),
             'discount' => $this->money($discount),
             'saleType' => $item->fbr_sale_type ?: $item->item?->fbr_sale_type,
-            'fixedNotifiedValueOrRetailPrice' => $this->optionalMoney($this->optionalMinorAmount($item->fbr_fixed_notified_value ?? $item->item?->fbr_fixed_notified_value)),
-            'salesTaxWithheldAtSource' => $this->optionalMoney($this->optionalMinorAmount($item->fbr_sales_tax_withheld ?? $item->item?->fbr_sales_tax_withheld)),
+            'fixedNotifiedValueOrRetailPrice' => $this->requiredMoney($item->fbr_fixed_notified_value ?? $item->item?->fbr_fixed_notified_value),
+            'salesTaxWithheldAtSource' => $this->requiredMoney($item->fbr_sales_tax_withheld ?? $item->item?->fbr_sales_tax_withheld),
             'furtherTax' => $this->optionalMoney($furtherTax),
             'extraTax' => $this->optionalMoney($extraTax),
             'fedPayable' => $this->optionalMoney($fedPayable),
@@ -458,15 +458,45 @@ class FbrDigitalInvoicingService
         return $amount === null ? null : $this->money($amount);
     }
 
+    private function requiredMoney(int|float|string|null $amount): float
+    {
+        if ($amount === null || $amount === '') {
+            return 0.00;
+        }
+
+        if (is_string($amount)) {
+            $amount = trim($amount);
+        }
+
+        if (! is_numeric($amount)) {
+            return 0.00;
+        }
+
+        return $this->money(max(0, (int) $amount));
+    }
+
     private function optionalFbrAmountFields(): array
     {
         return [
-            'fixedNotifiedValueOrRetailPrice',
-            'salesTaxWithheldAtSource',
             'furtherTax',
             'extraTax',
             'fedPayable',
         ];
+    }
+
+    private function taxIdentifier(?string $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', $value);
+
+        if ($digits === '') {
+            return null;
+        }
+
+        return strlen($digits) === 8 ? substr($digits, 0, 7) : $digits;
     }
 
     private function optionalMinorAmount(int|float|string|null $amount): ?int
