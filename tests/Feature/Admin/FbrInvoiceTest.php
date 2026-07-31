@@ -320,7 +320,7 @@ test('records successful FBR validation separately from final submission', funct
     ]);
 });
 
-test('sends blank optional FBR numeric fields as zero values', function () {
+test('omits blank optional FBR numeric fields from payload', function () {
     configureFbr();
 
     Http::fake([
@@ -346,11 +346,11 @@ test('sends blank optional FBR numeric fields as zero values', function () {
 
         return $request['invoiceRefNo'] === 'INV-001'
             && $item['totalValues'] === 1180.00
-            && $item['fixedNotifiedValueOrRetailPrice'] === 0.00
-            && $item['salesTaxWithheldAtSource'] === 0.00
-            && $item['furtherTax'] === 0.00
-            && $item['extraTax'] === 0.00
-            && $item['fedPayable'] === 0.00;
+            && ! array_key_exists('fixedNotifiedValueOrRetailPrice', $item)
+            && ! array_key_exists('salesTaxWithheldAtSource', $item)
+            && ! array_key_exists('furtherTax', $item)
+            && ! array_key_exists('extraTax', $item)
+            && ! array_key_exists('fedPayable', $item);
     });
 });
 

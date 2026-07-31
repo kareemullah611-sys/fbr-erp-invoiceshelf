@@ -470,6 +470,8 @@ class FbrDigitalInvoicingService
             return null;
         }
 
-        return max(0, (int) $amount);
+        $amount = (int) $amount;
+
+        return $amount > 0 ? $amount : null;
     }
 }
