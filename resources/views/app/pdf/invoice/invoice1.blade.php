@@ -20,12 +20,29 @@
         $invoiceDate = $invoice->invoice_date ? \Carbon\Carbon::parse($invoice->invoice_date) : now();
         $createdAt = $invoice->created_at ? \Carbon\Carbon::parse($invoice->created_at) : now();
         $fbrSubmission = $invoice->latestFbrSubmission ?? $invoice->fbrSubmissions()->latest()->first();
+        $addressText = function ($address): ?string {
+            if (! $address) {
+                return null;
+            }
+
+            $parts = array_filter([
+                $address->address_street_1,
+                $address->address_street_2,
+                $address->city,
+                $address->state,
+                $address->country_name,
+                $address->zip,
+            ], fn ($part) => filled($part));
+
+            return $parts === [] ? null : implode(', ', $parts);
+        };
+
         $sellerName = \App\Models\CompanySetting::getSetting('fbr_seller_business_name', $invoice->company_id) ?: ($company?->name ?: 'Seller');
         $sellerNtn = \App\Models\CompanySetting::getSetting('fbr_seller_ntn', $invoice->company_id) ?: ($company->tax_id ?? null) ?: ($company->vat_id ?? null);
-        $sellerAddress = \App\Models\CompanySetting::getSetting('fbr_seller_address', $invoice->company_id) ?: strip_tags((string) $company_address);
+        $sellerAddress = \App\Models\CompanySetting::getSetting('fbr_seller_address', $invoice->company_id) ?: $addressText($company?->address);
         $buyerName = $customer?->company_name ?: $customer?->name;
         $buyerTaxId = $customer?->fbr_ntn ?: $customer?->fbr_cnic ?: $customer?->tax_id;
-        $buyerAddress = strip_tags((string) $billing_address);
+        $buyerAddress = $addressText($customer?->billingAddress);
         $money = function ($amount) use ($currency) {
             if ($currency) {
                 return format_money_pdf((int) $amount, $currency);

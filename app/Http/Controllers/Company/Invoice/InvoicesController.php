@@ -64,7 +64,7 @@ class InvoicesController extends Controller
         }
 
         try {
-            GenerateInvoicePdfJob::dispatch($invoice);
+            GenerateInvoicePdfJob::dispatchAfterResponse($invoice);
         } catch (Throwable $exception) {
             Log::warning('Invoice PDF generation failed after invoice save', [
                 'invoice_id' => $invoice->id,
@@ -103,7 +103,7 @@ class InvoicesController extends Controller
         $invoice = $this->invoiceService->update($invoice, $request);
 
         try {
-            GenerateInvoicePdfJob::dispatch($invoice, true);
+            GenerateInvoicePdfJob::dispatchAfterResponse($invoice, true);
         } catch (Throwable $exception) {
             Log::warning('Invoice PDF generation failed after invoice update', [
                 'invoice_id' => $invoice->id,
