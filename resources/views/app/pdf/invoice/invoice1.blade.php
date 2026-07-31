@@ -10,13 +10,15 @@
     @php
         $company = $invoice->company;
         $customer = $invoice->customer;
-        $currency = $customer->currency;
-        $fbrSubmission = $invoice->latestFbrSubmission ?: $invoice->fbrSubmissions()->latest()->first();
-        $sellerName = \App\Models\CompanySetting::getSetting('fbr_seller_business_name', $invoice->company_id) ?: $company->name;
-        $sellerNtn = \App\Models\CompanySetting::getSetting('fbr_seller_ntn', $invoice->company_id) ?: $company->tax_id ?: $company->vat_id;
+        $currency = $customer?->currency;
+        $invoiceDate = \Carbon\Carbon::parse($invoice->invoice_date);
+        $createdAt = \Carbon\Carbon::parse($invoice->created_at);
+        $fbrSubmission = $invoice->latestFbrSubmission ?? $invoice->fbrSubmissions()->latest()->first();
+        $sellerName = \App\Models\CompanySetting::getSetting('fbr_seller_business_name', $invoice->company_id) ?: ($company?->name ?: 'Seller');
+        $sellerNtn = \App\Models\CompanySetting::getSetting('fbr_seller_ntn', $invoice->company_id) ?: ($company->tax_id ?? null) ?: ($company->vat_id ?? null);
         $sellerAddress = \App\Models\CompanySetting::getSetting('fbr_seller_address', $invoice->company_id) ?: strip_tags((string) $company_address);
-        $buyerName = $customer->company_name ?: $customer->name;
-        $buyerTaxId = $customer->fbr_ntn ?: $customer->fbr_cnic ?: $customer->tax_id;
+        $buyerName = $customer?->company_name ?: $customer?->name;
+        $buyerTaxId = $customer?->fbr_ntn ?: $customer?->fbr_cnic ?: $customer?->tax_id;
         $buyerAddress = strip_tags((string) $billing_address);
         $money = fn ($amount) => format_money_pdf((int) $amount, $currency);
         $plainMoney = fn ($amount) => number_format(((int) $amount) / 100, 2);
@@ -236,8 +238,8 @@
         <tr>
             <td><span class="label">Sales Invoice No:</span> {{ $invoice->invoice_number }}</td>
             <td class="right">
-                <div><span class="label">Date:</span> {{ $invoice->invoice_date->format('d/m/Y') }}</div>
-                <div><span class="label">Created At:</span> {{ $invoice->created_at->format('l, F d, Y / h:i A') }}</div>
+                <div><span class="label">Date:</span> {{ $invoiceDate->format('d/m/Y') }}</div>
+                <div><span class="label">Created At:</span> {{ $createdAt->format('l, F d, Y / h:i A') }}</div>
             </td>
         </tr>
     </table>
@@ -250,7 +252,7 @@
                 <div class="section-title">Bill To</div>
                 <div class="info-line"><span class="label">Name:</span> {{ $buyerName ?: 'N/A' }}</div>
                 <div class="info-line"><span class="label">NTN/CNIC:</span> {{ $buyerTaxId ?: 'N/A' }}</div>
-                <div class="info-line"><span class="label">Mobile:</span> {{ $customer->phone ?: 'N/A' }}</div>
+                <div class="info-line"><span class="label">Mobile:</span> {{ $customer?->phone ?: 'N/A' }}</div>
                 <div class="info-line"><span class="label">Address:</span> {{ $buyerAddress ?: 'N/A' }}</div>
                 <div class="info-line"><span class="label">PO#:</span> {{ $invoice->reference_number ?: 'N/A' }}</div>
             </td>

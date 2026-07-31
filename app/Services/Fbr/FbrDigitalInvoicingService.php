@@ -18,6 +18,12 @@ class FbrDigitalInvoicingService
 
     public function validate(Invoice $invoice): FbrInvoiceSubmission
     {
+        if ($this->environment($invoice) === 'production') {
+            throw ValidationException::withMessages([
+                'fbr' => 'FBR validation is available only in sandbox. Production IRIS provides the final post invoice API only; use Submit to FBR for production invoices.',
+            ]);
+        }
+
         return $this->send($invoice, 'validate');
     }
 
@@ -76,6 +82,12 @@ class FbrDigitalInvoicingService
         $environment = $this->environment($invoice);
         $payload = $this->payload($invoice, $environment);
         $url = config("fbr.urls.{$environment}.{$action}");
+
+        if (blank($url)) {
+            throw ValidationException::withMessages([
+                'fbr' => "FBR {$action} URL is not configured for {$environment}.",
+            ]);
+        }
 
         $response = Http::withToken($this->token($invoice, $environment))
             ->acceptJson()
@@ -314,16 +326,88 @@ class FbrDigitalInvoicingService
             ?? Arr::get($responsePayload, 'status')
             ?? Arr::get($responsePayload, 'data.status');
 
-        return is_string($status) && strtolower($status) === 'valid';
+        return is_string($status) && in_array(strtolower($status), ['valid', 'validated'], true);
     }
 
     private function errorMessage(Response $response, array $responsePayload): string
     {
-        return Arr::get($responsePayload, 'validationResponse.error')
-            ?? Arr::get($responsePayload, 'validationResponse.message')
-            ?? Arr::get($responsePayload, 'error')
-            ?? Arr::get($responsePayload, 'message')
-            ?? $response->body();
+        foreach ([
+            'validationResponse.error',
+            'validationResponse.message',
+            'validationResponse.errors',
+            'validationResponse.invoiceStatuses.0.error',
+            'validationResponse.invoiceStatuses.0.errorCode',
+            'ValidationResponse.error',
+            'ValidationResponse.message',
+            'ValidationResponse.errors',
+            'error',
+            'message',
+            'errors',
+            'data.error',
+            'data.message',
+            'data.errors',
+        ] as $key) {
+            $message = $this->stringifyError(Arr::get($responsePayload, $key));
+
+            if (filled($message)) {
+                return $message;
+            }
+        }
+
+        $message = $this->firstErrorMessage($responsePayload);
+
+        return filled($message)
+            ? $message
+            : (trim($response->body()) ?: "FBR request failed with HTTP {$response->status()}.");
+    }
+
+    private function firstErrorMessage(mixed $value): ?string
+    {
+        if (is_string($value) || is_numeric($value)) {
+            return (string) $value;
+        }
+
+        if (! is_array($value)) {
+            return null;
+        }
+
+        foreach (['error', 'message', 'errors', 'errorMessage', 'error_message'] as $key) {
+            if (array_key_exists($key, $value)) {
+                $message = $this->stringifyError($value[$key]);
+
+                if (filled($message)) {
+                    return $message;
+                }
+            }
+        }
+
+        foreach ($value as $nestedValue) {
+            $message = $this->firstErrorMessage($nestedValue);
+
+            if (filled($message)) {
+                return $message;
+            }
+        }
+
+        return null;
+    }
+
+    private function stringifyError(mixed $value): ?string
+    {
+        if (is_string($value) || is_numeric($value)) {
+            return trim((string) $value);
+        }
+
+        if (! is_array($value)) {
+            return null;
+        }
+
+        return collect($value)
+            ->flatMap(fn ($item) => is_array($item) ? collect($item)->flatten() : [$item])
+            ->filter(fn ($item) => is_string($item) || is_numeric($item))
+            ->map(fn ($item) => trim((string) $item))
+            ->filter()
+            ->implode(' ');
     }
 
     private function token(Invoice $invoice, string $environment): string

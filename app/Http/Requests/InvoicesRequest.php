@@ -87,18 +87,18 @@ class InvoicesRequest extends FormRequest
                 'required',
             ],
             'items.*.fbr_hs_code' => [
-                'required',
+                'nullable',
                 'string',
                 'max:255',
                 'regex:/^\d{4}\.\d{4}$/',
             ],
             'items.*.fbr_uom' => [
-                'required',
+                'nullable',
                 'string',
                 'max:255',
             ],
             'items.*.fbr_sale_type' => [
-                'required',
+                'nullable',
                 'string',
                 'max:255',
             ],
