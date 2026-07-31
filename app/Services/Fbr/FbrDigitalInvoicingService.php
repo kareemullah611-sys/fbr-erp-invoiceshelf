@@ -159,9 +159,9 @@ class FbrDigitalInvoicingService
         $discount = $this->lineDiscount($invoice, $item);
         $valueSalesExcludingST = max(0, $item->total - $discount);
         $salesTaxApplicable = $this->lineSalesTax($invoice, $item, $valueSalesExcludingST, $tax?->percent);
-        $furtherTax = $item->fbr_further_tax ?? $item->item?->fbr_further_tax;
-        $extraTax = $item->fbr_extra_tax ?? $item->item?->fbr_extra_tax;
-        $fedPayable = $item->fbr_fed_payable ?? $item->item?->fbr_fed_payable;
+        $furtherTax = $this->optionalMinorAmount($item->fbr_further_tax ?? $item->item?->fbr_further_tax);
+        $extraTax = $this->optionalMinorAmount($item->fbr_extra_tax ?? $item->item?->fbr_extra_tax);
+        $fedPayable = $this->optionalMinorAmount($item->fbr_fed_payable ?? $item->item?->fbr_fed_payable);
 
         $payload = [
             'hsCode' => $item->fbr_hs_code ?: $item->item?->fbr_hs_code,
@@ -169,13 +169,13 @@ class FbrDigitalInvoicingService
             'rate' => $rate,
             'uoM' => $item->fbr_uom ?: $item->unit_name ?: $item->item?->fbr_uom,
             'quantity' => (float) $item->quantity,
-            'totalValues' => $this->money($valueSalesExcludingST + $salesTaxApplicable + (int) ($furtherTax ?? 0) + (int) ($extraTax ?? 0) + (int) ($fedPayable ?? 0)),
+            'totalValues' => $this->money($valueSalesExcludingST + $salesTaxApplicable + ($furtherTax ?? 0) + ($extraTax ?? 0) + ($fedPayable ?? 0)),
             'valueSalesExcludingST' => $this->money($valueSalesExcludingST),
             'salesTaxApplicable' => $this->money($salesTaxApplicable),
             'discount' => $this->money($discount),
             'saleType' => $item->fbr_sale_type ?: $item->item?->fbr_sale_type,
-            'fixedNotifiedValueOrRetailPrice' => $this->optionalMoney($item->fbr_fixed_notified_value ?? $item->item?->fbr_fixed_notified_value),
-            'salesTaxWithheldAtSource' => $this->optionalMoney($item->fbr_sales_tax_withheld ?? $item->item?->fbr_sales_tax_withheld),
+            'fixedNotifiedValueOrRetailPrice' => $this->optionalMoney($this->optionalMinorAmount($item->fbr_fixed_notified_value ?? $item->item?->fbr_fixed_notified_value)),
+            'salesTaxWithheldAtSource' => $this->optionalMoney($this->optionalMinorAmount($item->fbr_sales_tax_withheld ?? $item->item?->fbr_sales_tax_withheld)),
             'furtherTax' => $this->optionalMoney($furtherTax),
             'extraTax' => $this->optionalMoney($extraTax),
             'fedPayable' => $this->optionalMoney($fedPayable),
@@ -445,8 +445,31 @@ class FbrDigitalInvoicingService
         return round($amount / 100, 2);
     }
 
-    private function optionalMoney(?int $amount): ?float
+    private function optionalMoney(int|float|string|null $amount): ?float
     {
+        $amount = $this->optionalMinorAmount($amount);
+
         return $amount === null ? null : $this->money($amount);
+    }
+
+    private function optionalMinorAmount(int|float|string|null $amount): ?int
+    {
+        if ($amount === null || $amount === '') {
+            return null;
+        }
+
+        if (is_string($amount)) {
+            $amount = trim($amount);
+
+            if ($amount === '') {
+                return null;
+            }
+        }
+
+        if (! is_numeric($amount)) {
+            return null;
+        }
+
+        return max(0, (int) $amount);
     }
 }

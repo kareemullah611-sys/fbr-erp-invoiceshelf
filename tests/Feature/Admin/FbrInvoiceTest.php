@@ -320,6 +320,40 @@ test('records successful FBR validation separately from final submission', funct
     ]);
 });
 
+test('sends blank optional FBR numeric fields as zero values', function () {
+    configureFbr();
+
+    Http::fake([
+        'gw.fbr.gov.pk/*' => Http::response(['invoiceNumber' => 'FBR-BLANK-OPTIONALS'], 200),
+    ]);
+
+    $invoice = createFbrReadyInvoice($this->company->id);
+    $item = $invoice->items()->first();
+    $item->forceFill([
+        'fbr_fixed_notified_value' => '',
+        'fbr_sales_tax_withheld' => '',
+        'fbr_further_tax' => '',
+        'fbr_extra_tax' => '',
+        'fbr_fed_payable' => '',
+    ])->save();
+
+    postJson("api/v1/invoices/{$invoice->id}/fbr/submit")
+        ->assertCreated()
+        ->assertJsonPath('data.status', 'SUBMITTED');
+
+    Http::assertSent(function ($request) {
+        $item = $request['items'][0];
+
+        return $request['invoiceRefNo'] === 'INV-001'
+            && $item['totalValues'] === 1180.00
+            && $item['fixedNotifiedValueOrRetailPrice'] === 0.00
+            && $item['salesTaxWithheldAtSource'] === 0.00
+            && $item['furtherTax'] === 0.00
+            && $item['extraTax'] === 0.00
+            && $item['fedPayable'] === 0.00;
+    });
+});
+
 test('prevents duplicate FBR final submissions', function () {
     configureFbr();
 
