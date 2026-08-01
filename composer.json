@@ -34,7 +34,8 @@
         "symfony/intl": "^7.3",
         "symfony/mailer": "^7.3",
         "symfony/mailgun-mailer": "^7.3",
-        "symfony/postmark-mailer": "^7.3"
+        "symfony/postmark-mailer": "^7.3",
+        "endroid/qr-code": "^6.1"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.5",
@@ -93,10 +94,10 @@
             "Composer\\Config::disableProcessTimeout",
             "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"pnpm dev\" --names=server,queue,logs,vite"
         ],
-	"ide-helper": [
+        "ide-helper": [
             "@php artisan ide-helper:generate",
             "@php artisan ide-helper:meta"
-	]
+        ]
     },
     "extra": {
         "laravel": {

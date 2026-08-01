@@ -20,6 +20,31 @@
         $invoiceDate = $invoice->invoice_date ? \Carbon\Carbon::parse($invoice->invoice_date) : now();
         $createdAt = $invoice->created_at ? \Carbon\Carbon::parse($invoice->created_at) : now();
         $fbrSubmission = $invoice->latestFbrSubmission ?? $invoice->fbrSubmissions()->latest()->first();
+        $fbrInvoiceNumber = $fbrSubmission?->fbr_invoice_number;
+        $fbrQrDataUri = null;
+
+        if ($fbrInvoiceNumber && class_exists(\Endroid\QrCode\Builder\Builder::class)) {
+            try {
+                $builder = new \Endroid\QrCode\Builder\Builder(
+                    writer: new \Endroid\QrCode\Writer\SvgWriter(),
+                    writerOptions: [
+                        \Endroid\QrCode\Writer\SvgWriter::WRITER_OPTION_EXCLUDE_XML_DECLARATION => true,
+                    ],
+                    validateResult: false,
+                    data: $fbrInvoiceNumber,
+                    encoding: new \Endroid\QrCode\Encoding\Encoding('UTF-8'),
+                    errorCorrectionLevel: \Endroid\QrCode\ErrorCorrectionLevel::High,
+                    size: 160,
+                    margin: 6,
+                    roundBlockSizeMode: \Endroid\QrCode\RoundBlockSizeMode::Margin,
+                );
+
+                $fbrQrDataUri = $builder->build()->getDataUri();
+            } catch (\Throwable) {
+                $fbrQrDataUri = null;
+            }
+        }
+
         $addressText = function ($address): ?string {
             if (! $address) {
                 return null;
@@ -235,15 +260,25 @@
         }
 
         .qr {
+            display: inline-block;
+            margin-left: 14px;
+            text-align: center;
+            vertical-align: middle;
+            width: 86px;
+        }
+
+        .qr img {
+            height: 86px;
+            width: 86px;
+        }
+
+        .qr-placeholder {
             border: 2px solid #252b33;
             display: inline-block;
             font-size: 9px;
-            height: 76px;
-            margin-left: 14px;
+            height: 62px;
             padding-top: 24px;
-            text-align: center;
-            vertical-align: middle;
-            width: 76px;
+            width: 86px;
         }
 
         .footer {
@@ -386,10 +421,16 @@
 
     <div class="verification">
         <span class="fbr-badge">FBR DIGITAL INVOICING SYSTEM</span>
-        <span class="qr">QR CODE<br>{{ $fbrSubmission?->fbr_invoice_number ?: $invoice->invoice_number }}</span>
+        <span class="qr">
+            @if ($fbrQrDataUri)
+                <img src="{{ $fbrQrDataUri }}" alt="FBR QR Code">
+            @else
+                <span class="qr-placeholder">QR CODE<br>{{ $fbrInvoiceNumber ?: $invoice->invoice_number }}</span>
+            @endif
+        </span>
         <div style="margin-top: 8px;">
             For Verification: Scan QR Code. Invoice No:
-            {{ $fbrSubmission?->fbr_invoice_number ?: $invoice->invoice_number }}
+            {{ $fbrInvoiceNumber ?: $invoice->invoice_number }}
         </div>
     </div>
 
