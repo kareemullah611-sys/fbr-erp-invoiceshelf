@@ -78,7 +78,7 @@ test('submits invoice payload to FBR and records response', function () {
 
 test('normalizes FBR NTN and CNIC identifiers before sending', function () {
     configureFbr([
-        'seller_ntn' => '3611395-6',
+        'fbr.seller_ntn' => '3611395-6',
     ]);
 
     Http::fake([
