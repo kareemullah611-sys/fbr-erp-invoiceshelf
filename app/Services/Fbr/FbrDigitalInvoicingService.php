@@ -133,15 +133,15 @@ class FbrDigitalInvoicingService
             'invoiceType' => 'Sale Invoice',
             'invoiceDate' => Carbon::parse($invoice->invoice_date)->format('Y-m-d'),
             'sellerNTNCNIC' => $this->taxIdentifier($this->setting($invoice, 'seller_ntn')),
-            'sellerBusinessName' => $this->setting($invoice, 'seller_business_name') ?: $invoice->company->name,
-            'sellerProvince' => $this->setting($invoice, 'seller_province'),
-            'sellerAddress' => $this->setting($invoice, 'seller_address'),
+            'sellerBusinessName' => $this->fbrText($this->setting($invoice, 'seller_business_name') ?: $invoice->company->name),
+            'sellerProvince' => $this->provinceName($this->setting($invoice, 'seller_province')),
+            'sellerAddress' => $this->fbrText($this->setting($invoice, 'seller_address')),
             'buyerNTNCNIC' => $this->taxIdentifier($invoice->customer?->fbr_ntn ?: $invoice->customer?->fbr_cnic ?: $invoice->customer?->tax_id ?: null),
-            'buyerBusinessName' => $invoice->customer?->company_name ?: $invoice->customer?->name,
-            'buyerProvince' => $buyerProvince,
-            'buyerAddress' => $buyerAddressText ?: null,
+            'buyerBusinessName' => $this->fbrText($invoice->customer?->company_name ?: $invoice->customer?->name),
+            'buyerProvince' => $this->provinceName($buyerProvince),
+            'buyerAddress' => $this->fbrText($buyerAddressText) ?: null,
             'buyerRegistrationType' => $invoice->customer?->fbr_registration_type ?: $this->setting($invoice, 'default_buyer_registration_type'),
-            'invoiceRefNo' => $invoice->invoice_number,
+            'invoiceRefNo' => '',
             'items' => $invoice->items->map(fn ($item) => $this->itemPayload($invoice, $item))->values()->all(),
         ];
 
@@ -167,13 +167,13 @@ class FbrDigitalInvoicingService
             'hsCode' => $item->fbr_hs_code ?: $item->item?->fbr_hs_code,
             'productDescription' => $item->name,
             'rate' => $rate,
-            'uoM' => $item->fbr_uom ?: $item->unit_name ?: $item->item?->fbr_uom,
+            'uoM' => $this->normalizeUom($item->fbr_uom ?: $item->unit_name ?: $item->item?->fbr_uom),
             'quantity' => (float) $item->quantity,
             'totalValues' => $this->money($valueSalesExcludingST + $salesTaxApplicable + ($furtherTax ?? 0) + ($extraTax ?? 0) + ($fedPayable ?? 0)),
             'valueSalesExcludingST' => $this->money($valueSalesExcludingST),
             'salesTaxApplicable' => $this->money($salesTaxApplicable),
             'discount' => $this->money($discount),
-            'saleType' => $item->fbr_sale_type ?: $item->item?->fbr_sale_type,
+            'saleType' => $this->normalizeSaleType($item->fbr_sale_type ?: $item->item?->fbr_sale_type),
             'fixedNotifiedValueOrRetailPrice' => $this->requiredMoney($item->fbr_fixed_notified_value ?? $item->item?->fbr_fixed_notified_value),
             'salesTaxWithheldAtSource' => $this->requiredMoney($item->fbr_sales_tax_withheld ?? $item->item?->fbr_sales_tax_withheld),
             'furtherTax' => $this->optionalMoney($furtherTax),
@@ -444,6 +444,72 @@ class FbrDigitalInvoicingService
         $value = $this->companySettings[$invoice->company_id]->get("fbr_{$key}");
 
         return blank($value) ? config("fbr.{$key}") : $value;
+    }
+
+    private function fbrText(mixed $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        $text = trim(preg_replace('/\s+/', ' ', str_replace(["\r", "\n"], ' ', (string) $value)));
+
+        return $text === '' ? null : $text;
+    }
+
+    private function provinceName(mixed $value): ?string
+    {
+        $text = $this->fbrText($value);
+
+        if ($text === null) {
+            return null;
+        }
+
+        return [
+            'PUNJAB' => 'Punjab',
+            'SINDH' => 'Sindh',
+            'BALOCHISTAN' => 'Balochistan',
+            'KHYBER PAKHTUNKHWA' => 'Khyber Pakhtunkhwa',
+            'KPK' => 'Khyber Pakhtunkhwa',
+            'ISLAMABAD' => 'Islamabad Capital Territory',
+            'ISLAMABAD CAPITAL TERRITORY' => 'Islamabad Capital Territory',
+        ][strtoupper($text)] ?? $text;
+    }
+
+    private function normalizeUom(mixed $value): ?string
+    {
+        $text = $this->fbrText($value);
+
+        if ($text === null) {
+            return null;
+        }
+
+        $key = strtolower(str_replace(['.', ',', ' '], '', $text));
+
+        return [
+            'kg' => 'KG',
+            'kgs' => 'KG',
+            'kilogram' => 'KG',
+            'kilograms' => 'KG',
+            'pc' => 'Numbers, pieces, units',
+            'pcs' => 'Numbers, pieces, units',
+            'piece' => 'Numbers, pieces, units',
+            'pieces' => 'Numbers, pieces, units',
+            'unit' => 'Numbers, pieces, units',
+            'units' => 'Numbers, pieces, units',
+            'numberspiecesunits' => 'Numbers, pieces, units',
+        ][$key] ?? $text;
+    }
+
+    private function normalizeSaleType(mixed $value): ?string
+    {
+        $text = $this->fbrText($value);
+
+        if ($text === null) {
+            return null;
+        }
+
+        return str_contains(strtolower($text), 'standard rate') ? 'Goods at standard rate (default)' : $text;
     }
 
     private function money(int $amount): float

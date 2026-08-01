@@ -60,6 +60,8 @@
             ];
         };
         $extraLineTax = fn ($item) => (int) ($item->fbr_further_tax ?? 0) + (int) ($item->fbr_extra_tax ?? 0) + (int) ($item->fbr_fed_payable ?? 0);
+        $showExtraTaxColumn = $invoice->items->sum(fn ($item) => (int) ($item->fbr_further_tax ?? 0) + (int) ($item->fbr_extra_tax ?? 0)) > 0;
+        $showFedColumn = $invoice->items->sum(fn ($item) => (int) ($item->fbr_fed_payable ?? 0)) > 0;
         $grandTax = (int) $invoice->tax + $invoice->items->sum(fn ($item) => $extraLineTax($item));
         $grandTotal = (int) $invoice->sub_total - (int) $invoice->discount_val + $grandTax;
         $amountWords = number_format($grandTotal / 100, 2).' Only';
@@ -306,8 +308,12 @@
                 <th width="7%">Qty</th>
                 <th width="8%">UOM</th>
                 <th width="7%">Tax %</th>
-                <th width="8%">Ext Tax</th>
-                <th width="7%">FED</th>
+                @if ($showExtraTaxColumn)
+                    <th width="8%">Ext Tax</th>
+                @endif
+                @if ($showFedColumn)
+                    <th width="7%">FED</th>
+                @endif
                 <th width="8%">Held Tax</th>
                 <th width="8%">Tax Charged</th>
                 <th width="10%">Total</th>
@@ -333,8 +339,12 @@
                     <td class="num">{{ rtrim(rtrim(number_format($item->quantity, 2), '0'), '.') }}</td>
                     <td>{{ $item->fbr_uom ?: $item->unit_name ?: $item->item?->fbr_uom ?: 'Missing' }}</td>
                     <td class="num">{{ $tax['percent'] !== null ? rtrim(rtrim(number_format($tax['percent'], 2), '0'), '.').'%' : 'Missing' }}</td>
-                    <td class="num">{!! $money((int) ($item->fbr_extra_tax ?? 0) + (int) ($item->fbr_further_tax ?? 0)) !!}</td>
-                    <td class="num">{!! $money($item->fbr_fed_payable ?? 0) !!}</td>
+                    @if ($showExtraTaxColumn)
+                        <td class="num">{!! $money((int) ($item->fbr_extra_tax ?? 0) + (int) ($item->fbr_further_tax ?? 0)) !!}</td>
+                    @endif
+                    @if ($showFedColumn)
+                        <td class="num">{!! $money($item->fbr_fed_payable ?? 0) !!}</td>
+                    @endif
                     <td class="num">{!! $money($item->fbr_sales_tax_withheld ?? 0) !!}</td>
                     <td class="num">{!! $money($tax['amount']) !!}</td>
                     <td class="num">{!! $money($lineTotal) !!}</td>

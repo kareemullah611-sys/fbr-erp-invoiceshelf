@@ -48,7 +48,7 @@ test('submits invoice payload to FBR and records response', function () {
             && $request['sellerNTNCNIC'] === '1234567'
             && $request['buyerNTNCNIC'] === '1000000000000'
             && $request['buyerRegistrationType'] === 'Registered'
-            && $request['invoiceRefNo'] === 'INV-001'
+            && $request['invoiceRefNo'] === ''
             && $request['scenarioId'] === 'SN001'
             && $request['items'][0]['hsCode'] === '4901.9900'
             && $request['items'][0]['uoM'] === 'Numbers, pieces, units'
@@ -169,7 +169,7 @@ test('calculates FBR item values from document level tax', function () {
         ->assertJsonPath('data.status', 'SUBMITTED');
 
     Http::assertSent(function ($request) {
-        return $request['invoiceRefNo'] === 'INV-7316'
+        return $request['invoiceRefNo'] === ''
             && $request['items'][0]['hsCode'] === '8311.1000'
             && $request['items'][0]['productDescription'] === 'Welding electrodes'
             && $request['items'][0]['rate'] === '18%'
@@ -331,7 +331,7 @@ test('records successful FBR validation separately from final submission', funct
         ->assertCreated()
         ->assertJsonPath('data.status', 'VALIDATED')
         ->assertJsonPath('data.fbr_invoice_number', null)
-        ->assertJsonPath('data.request_payload.invoiceRefNo', 'INV-001');
+        ->assertJsonPath('data.request_payload.invoiceRefNo', '');
 
     $this->assertDatabaseHas('fbr_invoice_submissions', [
         'invoice_id' => $invoice->id,

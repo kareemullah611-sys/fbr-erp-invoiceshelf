@@ -30,16 +30,7 @@ class DocumentItemService
 
             if (array_key_exists('taxes', $item) && $item['taxes']) {
                 foreach ($item['taxes'] as $tax) {
-                    $tax['company_id'] = $document->company_id;
-                    $tax['exchange_rate'] = $document->exchange_rate;
-                    $tax['base_amount'] = $tax['amount'] * $exchangeRate;
-                    $tax['currency_id'] = $document->currency_id;
-
-                    if (gettype($tax['amount']) !== 'NULL') {
-                        if (array_key_exists('recurring_invoice_id', $tax)) {
-                            unset($tax['recurring_invoice_id']);
-                        }
-
+                    if ($tax = $this->preparedTaxPayload($tax, $document, $exchangeRate)) {
                         $createdItem->taxes()->create($tax);
                     }
                 }
@@ -56,18 +47,31 @@ class DocumentItemService
         $exchangeRate = $document->exchange_rate;
 
         foreach ($taxes as $tax) {
-            $tax['company_id'] = $document->company_id;
-            $tax['exchange_rate'] = $document->exchange_rate;
-            $tax['base_amount'] = $tax['amount'] * $exchangeRate;
-            $tax['currency_id'] = $document->currency_id;
-
-            if (gettype($tax['amount']) !== 'NULL') {
-                if (array_key_exists('recurring_invoice_id', $tax)) {
-                    unset($tax['recurring_invoice_id']);
-                }
-
+            if ($tax = $this->preparedTaxPayload($tax, $document, $exchangeRate)) {
                 $document->taxes()->create($tax);
             }
         }
+    }
+
+    private function preparedTaxPayload(array $tax, Model $document, int|float $exchangeRate): ?array
+    {
+        if (empty($tax['tax_type_id']) || (int) $tax['tax_type_id'] <= 0) {
+            return null;
+        }
+
+        if (! array_key_exists('amount', $tax) || $tax['amount'] === null) {
+            return null;
+        }
+
+        if (array_key_exists('recurring_invoice_id', $tax)) {
+            unset($tax['recurring_invoice_id']);
+        }
+
+        $tax['company_id'] = $document->company_id;
+        $tax['exchange_rate'] = $document->exchange_rate;
+        $tax['base_amount'] = $tax['amount'] * $exchangeRate;
+        $tax['currency_id'] = $document->currency_id;
+
+        return $tax;
     }
 }
