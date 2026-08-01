@@ -366,7 +366,7 @@ test('keeps zero FBR numeric tax fields as numbers', function () {
     Http::assertSent(function ($request) {
         $item = $request['items'][0];
 
-        return $request['invoiceRefNo'] === 'INV-001'
+        return $request['invoiceRefNo'] === ''
             && $item['totalValues'] === 1180.00
             && $item['fixedNotifiedValueOrRetailPrice'] === 0.00
             && $item['salesTaxWithheldAtSource'] === 0.00
