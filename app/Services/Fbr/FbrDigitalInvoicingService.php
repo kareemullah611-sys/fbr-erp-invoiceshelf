@@ -543,11 +543,7 @@ class FbrDigitalInvoicingService
 
     private function optionalFbrAmountFields(): array
     {
-        return [
-            'furtherTax',
-            'extraTax',
-            'fedPayable',
-        ];
+        return [];
     }
 
     private function taxIdentifier(?string $value): ?string
@@ -568,23 +564,21 @@ class FbrDigitalInvoicingService
     private function optionalMinorAmount(int|float|string|null $amount): ?int
     {
         if ($amount === null || $amount === '') {
-            return null;
+            return 0;
         }
 
         if (is_string($amount)) {
             $amount = trim($amount);
 
             if ($amount === '') {
-                return null;
+                return 0;
             }
         }
 
         if (! is_numeric($amount)) {
-            return null;
+            return 0;
         }
 
-        $amount = (int) $amount;
-
-        return $amount > 0 ? $amount : null;
+        return max(0, (int) $amount);
     }
 }

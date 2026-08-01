@@ -342,7 +342,7 @@ test('records successful FBR validation separately from final submission', funct
     ]);
 });
 
-test('keeps required zero FBR amounts and omits optional zero tax fields', function () {
+test('keeps zero FBR numeric tax fields as numbers', function () {
     configureFbr();
 
     Http::fake([
@@ -370,9 +370,9 @@ test('keeps required zero FBR amounts and omits optional zero tax fields', funct
             && $item['totalValues'] === 1180.00
             && $item['fixedNotifiedValueOrRetailPrice'] === 0.00
             && $item['salesTaxWithheldAtSource'] === 0.00
-            && ! array_key_exists('furtherTax', $item)
-            && ! array_key_exists('extraTax', $item)
-            && ! array_key_exists('fedPayable', $item);
+            && $item['furtherTax'] === 0.00
+            && $item['extraTax'] === 0.00
+            && $item['fedPayable'] === 0.00;
     });
 });
 
