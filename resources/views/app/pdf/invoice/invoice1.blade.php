@@ -89,12 +89,42 @@
         $showFedColumn = $invoice->items->sum(fn ($item) => (int) ($item->fbr_fed_payable ?? 0)) > 0;
         $grandTax = (int) $invoice->tax + $invoice->items->sum(fn ($item) => $extraLineTax($item));
         $grandTotal = (int) $invoice->sub_total - (int) $invoice->discount_val + $grandTax;
-        $amountWords = number_format($grandTotal / 100, 2).' Only';
+        $numberToWords = function (int $number) use (&$numberToWords): string {
+            $ones = [
+                0 => 'Zero', 1 => 'One', 2 => 'Two', 3 => 'Three', 4 => 'Four',
+                5 => 'Five', 6 => 'Six', 7 => 'Seven', 8 => 'Eight', 9 => 'Nine',
+                10 => 'Ten', 11 => 'Eleven', 12 => 'Twelve', 13 => 'Thirteen', 14 => 'Fourteen',
+                15 => 'Fifteen', 16 => 'Sixteen', 17 => 'Seventeen', 18 => 'Eighteen', 19 => 'Nineteen',
+            ];
+            $tens = [
+                2 => 'Twenty', 3 => 'Thirty', 4 => 'Forty', 5 => 'Fifty',
+                6 => 'Sixty', 7 => 'Seventy', 8 => 'Eighty', 9 => 'Ninety',
+            ];
 
-        if (class_exists(\NumberFormatter::class)) {
-            $formatter = new \NumberFormatter('en', \NumberFormatter::SPELLOUT);
-            $amountWords = ucfirst($formatter->format((int) round($grandTotal / 100))).' Only';
-        }
+            if ($number < 20) {
+                return $ones[$number];
+            }
+
+            if ($number < 100) {
+                return $tens[intdiv($number, 10)].($number % 10 ? '-'.$ones[$number % 10] : '');
+            }
+
+            if ($number < 1000) {
+                return $ones[intdiv($number, 100)].' Hundred'.($number % 100 ? ' '.$numberToWords($number % 100) : '');
+            }
+
+            foreach ([10000000 => 'Crore', 100000 => 'Lakh', 1000 => 'Thousand'] as $value => $label) {
+                if ($number >= $value) {
+                    return $numberToWords(intdiv($number, $value)).' '.$label.($number % $value ? ' '.$numberToWords($number % $value) : '');
+                }
+            }
+
+            return (string) $number;
+        };
+        $rupees = intdiv($grandTotal, 100);
+        $paisa = abs($grandTotal % 100);
+        $amountWords = 'Pakistani Rupees '.$numberToWords($rupees);
+        $amountWords .= $paisa > 0 ? ' and '.$numberToWords($paisa).' Paisa Only' : ' Only';
     @endphp
 
     <style type="text/css">
