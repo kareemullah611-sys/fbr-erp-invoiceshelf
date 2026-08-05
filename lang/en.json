@@ -1634,7 +1634,19 @@
       "tokens_section_help": "IRIS access tokens. Sandbox uses the sandbox token; production uses the production token.",
       "sandbox_token": "Sandbox API token",
       "production_token": "Production API token",
-      "saved": "FBR settings saved."
+      "saved": "FBR settings saved.",
+      "scenarios_section": "Sandbox scenarios",
+      "scenarios_section_help": "Define the FBR IRIS sandbox scenarios for this business. Each business can have its own set.",
+      "add_scenario": "Add scenario",
+      "scenario_code_placeholder": "e.g. SN005",
+      "scenario_label_placeholder": "e.g. Reduced Rate Sale",
+      "reduced_rate_section": "Reduced-rate HS catalog",
+      "reduced_rate_section_help": "HS codes that map to reduced-rate goods. Typing one of these on an invoice line auto-fills sale type and SRO details. Per business.",
+      "add_reduced_entry": "Add HS entry",
+      "hs_code": "HS code",
+      "rate": "Rate",
+      "sro_schedule": "SRO schedule",
+      "sro_serial": "SRO item serial"
     }
   },
   "wizard": {

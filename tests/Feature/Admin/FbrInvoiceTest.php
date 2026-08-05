@@ -599,6 +599,38 @@ test('emits FBR item payload fields in the official template order', function ()
     });
 });
 
+test('bootstrap fbr_reference reflects per-company scenarios and reduced-rate catalog', function () {
+    CompanySetting::setSettings([
+        'fbr_scenarios' => json_encode([
+            'SN900' => 'Custom Reduced Rate',
+            'SN901' => 'Custom Retailer',
+        ]),
+        'fbr_reduced_rate_hs' => json_encode([
+            '0102.2930' => [
+                'rate' => '10%',
+                'sroScheduleNo' => 'EIGHTH SCHEDULE Table 1',
+                'sroItemSerialNo' => '84(i)',
+            ],
+        ]),
+    ], $this->company->id);
+
+    $response = getJson('api/v1/bootstrap')->assertOk();
+
+    $reference = $response->json('fbr_reference');
+
+    expect($reference['scenarios'])->toBe([
+        'SN900' => 'Custom Reduced Rate',
+        'SN901' => 'Custom Retailer',
+    ])
+        ->and($reference['reduced_rate_hs'])->toBe([
+            '0102.2930' => [
+                'rate' => '10%',
+                'sroScheduleNo' => 'EIGHTH SCHEDULE Table 1',
+                'sroItemSerialNo' => '84(i)',
+            ],
+        ]);
+});
+
 function configureFbr(array $overrides = []): void
 {
     config([

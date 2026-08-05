@@ -136,7 +136,7 @@ class BootstrapController extends Controller
             'current_company_currency' => $current_company_currency,
             'config' => config('invoiceshelf'),
             'global_settings' => $global_settings,
-            'fbr_reference' => $this->fbrReference(),
+            'fbr_reference' => $this->fbrReference($current_company->id),
             'ai' => [
                 'enabled' => $aiResolved !== null,
                 'chat_enabled' => (bool) ($aiResolved['chat_enabled'] ?? false),
@@ -165,12 +165,33 @@ class BootstrapController extends Controller
         return new CompanyResource($company);
     }
 
-    private function fbrReference(): array
+    private function fbrReference(?int $companyId = null): array
     {
+        $scenarios = config('fbr.scenarios', []);
+        $reducedRateHs = config('fbr.reduced_rate_hs', []);
+
+        if ($companyId !== null) {
+            $companySettings = CompanySetting::getAllSettings($companyId);
+
+            if ($value = $companySettings->get('fbr_scenarios')) {
+                $decoded = json_decode((string) $value, true);
+                if (is_array($decoded)) {
+                    $scenarios = $decoded;
+                }
+            }
+
+            if ($value = $companySettings->get('fbr_reduced_rate_hs')) {
+                $decoded = json_decode((string) $value, true);
+                if (is_array($decoded)) {
+                    $reducedRateHs = $decoded;
+                }
+            }
+        }
+
         return [
             'sale_types' => config('fbr.sale_types', []),
-            'scenarios' => config('fbr.scenarios', []),
-            'reduced_rate_hs' => config('fbr.reduced_rate_hs', []),
+            'scenarios' => $scenarios,
+            'reduced_rate_hs' => $reducedRateHs,
         ];
     }
 }
