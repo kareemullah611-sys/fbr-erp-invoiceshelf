@@ -142,12 +142,13 @@ class FbrDigitalInvoicingService
             'buyerAddress' => $this->fbrText($buyerAddressText) ?: null,
             'buyerRegistrationType' => $invoice->customer?->fbr_registration_type ?: $this->setting($invoice, 'default_buyer_registration_type'),
             'invoiceRefNo' => '',
-            'items' => $invoice->items->map(fn ($item) => $this->itemPayload($invoice, $item))->values()->all(),
         ];
 
-        if ($environment === 'sandbox' && $this->setting($invoice, 'sandbox_scenario_id')) {
-            $payload['scenarioId'] = $this->setting($invoice, 'sandbox_scenario_id');
+        if ($scenarioId = $this->scenarioId($invoice, $environment)) {
+            $payload['scenarioId'] = $scenarioId;
         }
+
+        $payload['items'] = $invoice->items->map(fn ($item) => $this->itemPayload($invoice, $item))->values()->all();
 
         return $payload;
     }
@@ -162,6 +163,8 @@ class FbrDigitalInvoicingService
         $furtherTax = $this->optionalMinorAmount($item->fbr_further_tax ?? $item->item?->fbr_further_tax);
         $extraTax = $this->optionalMinorAmount($item->fbr_extra_tax ?? $item->item?->fbr_extra_tax);
         $fedPayable = $this->optionalMinorAmount($item->fbr_fed_payable ?? $item->item?->fbr_fed_payable);
+        $saleType = $this->normalizeSaleType($item->fbr_sale_type ?: $item->item?->fbr_sale_type);
+        $isReducedRate = $this->isReducedRateSaleType($saleType);
 
         $payload = [
             'hsCode' => $item->fbr_hs_code ?: $item->item?->fbr_hs_code,
@@ -171,15 +174,15 @@ class FbrDigitalInvoicingService
             'quantity' => (float) $item->quantity,
             'totalValues' => $this->money($valueSalesExcludingST + $salesTaxApplicable + ($furtherTax ?? 0) + ($extraTax ?? 0) + ($fedPayable ?? 0)),
             'valueSalesExcludingST' => $this->money($valueSalesExcludingST),
-            'salesTaxApplicable' => $this->money($salesTaxApplicable),
-            'discount' => $this->money($discount),
-            'saleType' => $this->normalizeSaleType($item->fbr_sale_type ?: $item->item?->fbr_sale_type),
             'fixedNotifiedValueOrRetailPrice' => $this->requiredMoney($item->fbr_fixed_notified_value ?? $item->item?->fbr_fixed_notified_value),
+            'salesTaxApplicable' => $this->money($salesTaxApplicable),
             'salesTaxWithheldAtSource' => $this->requiredMoney($item->fbr_sales_tax_withheld ?? $item->item?->fbr_sales_tax_withheld),
+            'extraTax' => $isReducedRate ? '' : $this->optionalMoney($extraTax),
             'furtherTax' => $this->optionalMoney($furtherTax),
-            'extraTax' => $this->optionalMoney($extraTax),
+            'sroScheduleNo' => $item->fbr_sro_no ?: $item->item?->fbr_sro_no ?: $this->defaultSroSchedule($saleType),
             'fedPayable' => $this->optionalMoney($fedPayable),
-            'sroScheduleNo' => $item->fbr_sro_no ?: $item->item?->fbr_sro_no ?: null,
+            'discount' => $this->money($discount),
+            'saleType' => $saleType,
             'sroItemSerialNo' => $item->fbr_sro_item_no ?: $item->item?->fbr_sro_item_no ?: null,
         ];
 
@@ -284,6 +287,14 @@ class FbrDigitalInvoicingService
             foreach (['hsCode' => 'item HS code', 'rate' => 'item tax rate', 'uoM' => 'item unit/UOM', 'saleType' => 'item sale type'] as $key => $label) {
                 if (blank($item[$key] ?? null)) {
                     $missing[] = 'Line '.($index + 1).' '.$label;
+                }
+            }
+
+            if ($this->isReducedRateSaleType($item['saleType'] ?? null)) {
+                foreach (['sroScheduleNo' => 'item SRO schedule', 'sroItemSerialNo' => 'item SRO serial'] as $key => $label) {
+                    if (blank($item[$key] ?? null)) {
+                        $missing[] = 'Line '.($index + 1).' '.$label;
+                    }
                 }
             }
         }
@@ -509,7 +520,36 @@ class FbrDigitalInvoicingService
             return null;
         }
 
-        return str_contains(strtolower($text), 'standard rate') ? 'Goods at standard rate (default)' : $text;
+        $normalized = strtolower($text);
+
+        if (str_contains($normalized, 'standard rate')) {
+            return 'Goods at standard rate (default)';
+        }
+
+        if (str_contains($normalized, 'reduced rate')) {
+            return 'Goods at Reduced Rate';
+        }
+
+        return $text;
+    }
+
+    private function isReducedRateSaleType(mixed $value): bool
+    {
+        return $this->normalizeSaleType($value) === 'Goods at Reduced Rate';
+    }
+
+    private function defaultSroSchedule(mixed $saleType): ?string
+    {
+        return $this->isReducedRateSaleType($saleType) ? 'EIGHTH SCHEDULE Table 1' : null;
+    }
+
+    private function scenarioId(Invoice $invoice, string $environment): ?string
+    {
+        if ($environment !== 'sandbox') {
+            return null;
+        }
+
+        return $this->fbrText($this->setting($invoice, 'sandbox_scenario_id'));
     }
 
     private function money(int $amount): float

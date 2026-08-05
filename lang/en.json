@@ -491,7 +491,9 @@
       "tax": "Tax",
       "amount": "Amount",
       "select_an_item": "Type or click to select an item",
-      "type_item_description": "Type Item Description (optional)"
+      "type_item_description": "Type Item Description (optional)",
+      "select_sale_type": "Select sale type",
+      "reduced_rate_help": "Reduced-rate goods must include an SRO schedule and SRO item serial. Enter FBR further/extra tax, FED payable and sales tax withheld in the currency you invoice in."
     },
     "payment_attached_message": "One of the selected invoices already have a payment attached to it. Make sure to delete the attached payments first in order to go ahead with the removal",
     "confirm_delete": "You will not be able to recover this Invoice | You will not be able to recover these Invoices",
@@ -925,7 +927,8 @@
       "pdf_generation": "PDF Generation",
       "appearance": "Appearance",
       "module_configuration": "Module Configuration",
-      "ai_configuration": "AI Configuration"
+      "ai_configuration": "AI Configuration",
+      "fbr": "FBR Digital Invoicing"
     },
     "appearance": {
       "title": "Appearance",
@@ -1604,6 +1607,34 @@
       "state_placeholder": "Example: CA",
       "zip_placeholder": "Example: 90024",
       "invalid_address": "Please provide valid address details."
+    },
+    "fbr": {
+      "title": "FBR Digital Invoicing",
+      "description": "Configure PKR STRN-free digital invoicing integration with FBR IRIS for this company.",
+      "enable": "Enable FBR integration",
+      "enable_help": "Turn on to start validating and submitting invoices to FBR IRIS.",
+      "environment": "Environment",
+      "environment_sandbox": "Sandbox",
+      "environment_production": "Production",
+      "scenario": "Sandbox scenario",
+      "scenario_placeholder": "No scenario",
+      "seller_section": "Seller details",
+      "seller_section_help": "Registered seller identity reported on every FBR invoice.",
+      "seller_ntn": "Seller NTN / CNIC",
+      "seller_business_name": "Seller business name",
+      "seller_province": "Seller province",
+      "seller_address": "Seller address",
+      "defaults_section": "Default invoice-line values",
+      "defaults_section_help": "Used when a line item omits FBR details.",
+      "default_hs_code": "Default HS Code",
+      "default_uom": "Default UoM",
+      "default_sale_type": "Default sale type",
+      "default_buyer_registration_type": "Default buyer registration type",
+      "tokens_section": "API tokens",
+      "tokens_section_help": "IRIS access tokens. Sandbox uses the sandbox token; production uses the production token.",
+      "sandbox_token": "Sandbox API token",
+      "production_token": "Production API token",
+      "saved": "FBR settings saved."
     }
   },
   "wizard": {

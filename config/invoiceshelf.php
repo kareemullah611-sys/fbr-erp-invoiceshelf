@@ -297,6 +297,16 @@ return [
             'model' => '',
         ],
         [
+            'title' => 'settings.menu_title.fbr',
+            'group' => '',
+            'name' => 'FBR Digital Invoicing',
+            'link' => '/admin/settings/fbr',
+            'icon' => 'DocumentCheckIcon',
+            'owner_only' => true,
+            'ability' => '',
+            'model' => '',
+        ],
+        [
             'title' => 'settings.menu_title.module_configuration',
             'group' => '',
             'name' => 'Module Configuration',

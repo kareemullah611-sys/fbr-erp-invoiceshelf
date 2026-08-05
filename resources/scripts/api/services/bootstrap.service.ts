@@ -16,6 +16,15 @@ export interface MenuItem {
   ability?: string
 }
 
+export interface FbrReference {
+  sale_types: string[]
+  scenarios: Record<string, string>
+  reduced_rate_hs: Record<
+    string,
+    { rate: string; sroScheduleNo: string; sroItemSerialNo: string }
+  >
+}
+
 export interface BootstrapResponse {
   current_user: User
   current_user_settings: Record<string, string>
@@ -28,6 +37,7 @@ export interface BootstrapResponse {
   setting_menu: MenuItem[]
   config: Record<string, unknown>
   global_settings: Record<string, string>
+  fbr_reference?: FbrReference
   modules: string[]
   ai?: {
     enabled: boolean

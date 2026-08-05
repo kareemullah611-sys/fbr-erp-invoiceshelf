@@ -187,7 +187,7 @@
           <tr>
             <td class="px-5 pb-4 text-left align-top" />
             <td colspan="4" class="px-5 pb-4 text-left align-top">
-              <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
                 <BaseInputGroup
                   label="FBR HS Code"
                   :error="v$.fbr_hs_code.$error && v$.fbr_hs_code.$errors[0].$message"
@@ -209,7 +209,7 @@
                     v-model="fbrUom"
                     :invalid="v$.fbr_uom.$error"
                     :content-loading="loading"
-                    placeholder="KG"
+                    placeholder="Numbers, pieces, units"
                     @input="v$.fbr_uom.$touch()"
                   />
                 </BaseInputGroup>
@@ -218,14 +218,66 @@
                   label="FBR Sale Type"
                   :error="v$.fbr_sale_type.$error && v$.fbr_sale_type.$errors[0].$message"
                 >
-                  <BaseInput
+                  <BaseMultiselect
                     v-model="fbrSaleType"
+                    :options="saleTypeOptions"
                     :invalid="v$.fbr_sale_type.$error"
                     :content-loading="loading"
-                    placeholder="Goods at standard rate (default)"
-                    @input="v$.fbr_sale_type.$touch()"
+                    value-prop="value"
+                    label="label"
+                    track-by="label"
+                    :can-deselect="true"
+                    :placeholder="$t('invoices.item.select_sale_type')"
+                    @update:model-value="v$.fbr_sale_type.$touch()"
                   />
                 </BaseInputGroup>
+
+                <BaseInputGroup
+                  v-if="isReducedRate"
+                  label="FBR SRO Schedule"
+                >
+                  <BaseInput
+                    v-model="fbrSroNo"
+                    :content-loading="loading"
+                    placeholder="EIGHTH SCHEDULE Table 1"
+                  />
+                </BaseInputGroup>
+
+                <BaseInputGroup
+                  v-if="isReducedRate"
+                  label="FBR SRO Item Serial"
+                  :error="reducedRateSroSerialError ? $t('validation.required') : ''"
+                >
+                  <BaseInput
+                    v-model="fbrSroItemNo"
+                    :invalid="isReducedRate && !fbrSroItemNo"
+                    :content-loading="loading"
+                    placeholder="70"
+                  />
+                </BaseInputGroup>
+              </div>
+
+              <div v-if="isReducedRate" class="mt-4 space-y-3 border-t border-line-light pt-4">
+                <p class="text-xs text-muted">
+                  {{ $t('invoices.item.reduced_rate_help') }}
+                </p>
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <BaseInputGroup label="FBR Further Tax" :content-loading="loading">
+                    <BaseInput v-model.number="fbrFurtherTax" type="number" min="0" />
+                  </BaseInputGroup>
+                  <BaseInputGroup label="FBR Extra Tax" :content-loading="loading">
+                    <BaseInput v-model.number="fbrExtraTax" type="number" min="0" />
+                  </BaseInputGroup>
+                  <BaseInputGroup label="FBR Fed Payable" :content-loading="loading">
+                    <BaseInput v-model.number="fbrFedPayable" type="number" min="0" />
+                  </BaseInputGroup>
+                  <BaseInputGroup label="FBR Sales Tax Withheld" :content-loading="loading">
+                    <BaseInput v-model.number="fbrSalesTaxWithheld" type="number" min="0" />
+                  </BaseInputGroup>
+                  <BaseInputGroup label="Fixed Notified Value / Retail Price" :content-loading="loading">
+                    <BaseInput v-model.number="fbrFixedNotifiedValue" type="number" min="0" />
+                  </BaseInputGroup>
+                </div>
               </div>
             </td>
           </tr>
@@ -241,6 +293,7 @@ import { useI18n } from 'vue-i18n'
 import { required, between, maxLength, helpers, minValue } from '@vuelidate/validators'
 import useVuelidate from '@vuelidate/core'
 import { useCompanyStore } from '../../../stores/company.store'
+import { useGlobalStore } from '@/scripts/stores/global.store'
 import DocumentItemRowTax from './DocumentItemRowTax.vue'
 import DragIcon from '@/scripts/components/icons/DragIcon.vue'
 import { generateClientId } from '../../../utils'
@@ -279,6 +332,7 @@ const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
 const companyStore = useCompanyStore()
+const globalStore = useGlobalStore()
 
 const formData = computed<DocumentFormData>(() => {
   return props.store[props.storeProp] as DocumentFormData
@@ -309,6 +363,7 @@ const fbrHsCode = computed<string>({
   get: () => String(props.itemData.fbr_hs_code ?? ''),
   set: (newValue: string) => {
     updateItemAttribute('fbr_hs_code', newValue.trim() || null)
+    applyReducedRateAutoSelect(newValue.trim())
   },
 })
 
@@ -319,11 +374,73 @@ const fbrUom = computed<string>({
   },
 })
 
+const saleTypeOptions = computed(() =>
+  globalStore.fbrReference.sale_types.map((value) => ({ value, label: value })),
+)
+
 const fbrSaleType = computed<string>({
   get: () => String(props.itemData.fbr_sale_type ?? ''),
   set: (newValue: string) => {
     updateItemAttribute('fbr_sale_type', newValue.trim() || null)
   },
+})
+
+const isReducedRate = computed<boolean>(() => {
+  const value = String(props.itemData.fbr_sale_type ?? '').toLowerCase()
+  return value.includes('reduced rate')
+})
+
+const fbrSroNo = computed<string>({
+  get: () => String(props.itemData.fbr_sro_no ?? ''),
+  set: (newValue: string) => {
+    updateItemAttribute('fbr_sro_no', newValue.trim() || null)
+  },
+})
+
+const fbrSroItemNo = computed<string>({
+  get: () => String(props.itemData.fbr_sro_item_no ?? ''),
+  set: (newValue: string) => {
+    updateItemAttribute('fbr_sro_item_no', newValue.trim() || null)
+  },
+})
+
+const fbrFurtherTax = computed<number | null>({
+  get: () => nullableMinorAmount(props.itemData.fbr_further_tax),
+  set: (newValue: number | null) => {
+    updateItemAttribute('fbr_further_tax', newValue ?? null)
+  },
+})
+
+const fbrExtraTax = computed<number | null>({
+  get: () => nullableMinorAmount(props.itemData.fbr_extra_tax),
+  set: (newValue: number | null) => {
+    updateItemAttribute('fbr_extra_tax', newValue ?? null)
+  },
+})
+
+const fbrFedPayable = computed<number | null>({
+  get: () => nullableMinorAmount(props.itemData.fbr_fed_payable),
+  set: (newValue: number | null) => {
+    updateItemAttribute('fbr_fed_payable', newValue ?? null)
+  },
+})
+
+const fbrSalesTaxWithheld = computed<number | null>({
+  get: () => nullableMinorAmount(props.itemData.fbr_sales_tax_withheld),
+  set: (newValue: number | null) => {
+    updateItemAttribute('fbr_sales_tax_withheld', newValue ?? null)
+  },
+})
+
+const fbrFixedNotifiedValue = computed<number | null>({
+  get: () => nullableMinorAmount(props.itemData.fbr_fixed_notified_value),
+  set: (newValue: number | null) => {
+    updateItemAttribute('fbr_fixed_notified_value', newValue ?? null)
+  },
+})
+
+const reducedRateSroSerialError = computed<boolean>(() => {
+  return isReducedRate.value && !String(props.itemData.fbr_sro_item_no ?? '').trim()
 })
 
 const subtotal = computed<number>(() => {
@@ -411,6 +528,15 @@ const rules = {
   },
   fbr_sale_type: {
     required: helpers.withMessage('FBR sale type is required.', required),
+  },
+  fbr_sro_item_no: {
+    required: helpers.withMessage(
+      t('validation.required'),
+      (value: string) => {
+        if (!isReducedRate.value) return true
+        return Boolean(value && String(value).trim())
+      },
+    ),
   },
 }
 
@@ -547,6 +673,32 @@ function updateItemAttribute(attribute: string, value: unknown): void {
   props.store.$patch((state: Record<string, unknown>) => {
     const form = state[props.storeProp] as DocumentFormData
     ;(form.items[props.index] as Record<string, unknown>)[attribute] = value
+  })
+
+  syncItemToStore()
+}
+
+function nullableMinorAmount(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+  const num = Number(value)
+  return Number.isFinite(num) ? num : null
+}
+
+function applyReducedRateAutoSelect(hsCode: string): void {
+  const entry = globalStore.fbrReference.reduced_rate_hs[hsCode]
+  if (!entry) return
+
+  const patch: Record<string, unknown> = {
+    fbr_sale_type: 'Goods at Reduced Rate',
+    fbr_sro_no: entry.sroScheduleNo,
+    fbr_sro_item_no: entry.sroItemSerialNo,
+  }
+
+  props.store.$patch((state: Record<string, unknown>) => {
+    const form = state[props.storeProp] as DocumentFormData
+    Object.assign(form.items[props.index], patch)
   })
 
   syncItemToStore()

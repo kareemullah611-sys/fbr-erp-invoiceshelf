@@ -168,6 +168,15 @@ const settingsRoutes: RouteRecordRaw[] = [
         component: () => import('./views/AiConfigView.vue'),
       },
       {
+        path: 'fbr',
+        name: 'settings.fbr',
+        meta: {
+          requiresAuth: true,
+          isOwner: true,
+        },
+        component: () => import('./views/FbrConfigView.vue'),
+      },
+      {
         path: 'roles',
         name: 'settings.roles',
         meta: {

@@ -64,6 +64,7 @@ class BootstrapController extends Controller
                 'current_company_currency' => Currency::first(),
                 'config' => config('invoiceshelf'),
                 'global_settings' => $global_settings,
+                'fbr_reference' => $this->fbrReference(),
                 'main_menu' => $this->generateMenu('admin_menu', $current_user),
                 'setting_menu' => [],
                 'modules' => [],
@@ -83,6 +84,7 @@ class BootstrapController extends Controller
                 'current_company_settings' => [],
                 'current_company_currency' => Currency::first(),
                 'config' => config('invoiceshelf'),
+                'fbr_reference' => $this->fbrReference(),
                 'global_settings' => $global_settings,
                 'main_menu' => [],
                 'setting_menu' => [],
@@ -134,6 +136,7 @@ class BootstrapController extends Controller
             'current_company_currency' => $current_company_currency,
             'config' => config('invoiceshelf'),
             'global_settings' => $global_settings,
+            'fbr_reference' => $this->fbrReference(),
             'ai' => [
                 'enabled' => $aiResolved !== null,
                 'chat_enabled' => (bool) ($aiResolved['chat_enabled'] ?? false),
@@ -160,5 +163,14 @@ class BootstrapController extends Controller
         $company = Company::find($request->header('company'));
 
         return new CompanyResource($company);
+    }
+
+    private function fbrReference(): array
+    {
+        return [
+            'sale_types' => config('fbr.sale_types', []),
+            'scenarios' => config('fbr.scenarios', []),
+            'reduced_rate_hs' => config('fbr.reduced_rate_hs', []),
+        ];
     }
 }

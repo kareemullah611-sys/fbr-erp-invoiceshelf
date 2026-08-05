@@ -398,6 +398,207 @@ test('prevents duplicate FBR final submissions', function () {
     Http::assertNothingSent();
 });
 
+test('builds reduced rate payload for end consumer retailer scenarios', function () {
+    configureFbr([
+        'fbr.sandbox_scenario_id' => 'SN028',
+    ]);
+
+    Http::fake([
+        'gw.fbr.gov.pk/*' => Http::response(['invoiceNumber' => 'FBR-REDUCED'], 200),
+    ]);
+
+    $customer = Customer::factory()->create([
+        'company_id' => $this->company->id,
+        'tax_id' => null,
+        'fbr_ntn' => '1000000000000',
+        'fbr_registration_type' => 'Registered',
+        'company_name' => 'End Consumer',
+    ]);
+
+    Address::factory()->create([
+        'company_id' => $this->company->id,
+        'customer_id' => $customer->id,
+        'type' => Address::BILLING_TYPE,
+        'state' => 'Sindh',
+        'city' => 'Karachi',
+        'address_street_1' => 'Main Road',
+    ]);
+
+    $invoice = Invoice::factory()->create([
+        'company_id' => $this->company->id,
+        'customer_id' => $customer->id,
+        'invoice_date' => '2026-08-05',
+        'invoice_number' => 'INV-REDUCED',
+        'tax_per_item' => 'YES',
+        'discount_per_item' => 'NO',
+        'discount_type' => 'fixed',
+        'discount' => 0,
+        'discount_val' => 0,
+        'sub_total' => 10000,
+        'tax' => 100,
+        'total' => 10100,
+        'due_amount' => 10100,
+    ]);
+
+    $item = InvoiceItem::factory()->create([
+        'company_id' => $this->company->id,
+        'invoice_id' => $invoice->id,
+        'name' => 'Baby formula',
+        'quantity' => 1,
+        'price' => 10000,
+        'total' => 10000,
+        'tax' => 100,
+        'unit_name' => null,
+        'fbr_hs_code' => '0101.2100',
+        'fbr_uom' => 'Numbers, pieces, units',
+        'fbr_sale_type' => 'goods at reduced rate',
+        'fbr_sro_no' => null,
+        'fbr_sro_item_no' => '70',
+    ]);
+
+    $taxType = TaxType::factory()->create([
+        'company_id' => $this->company->id,
+        'percent' => 1,
+    ]);
+
+    Tax::factory()->create([
+        'company_id' => $this->company->id,
+        'invoice_item_id' => $item->id,
+        'tax_type_id' => $taxType->id,
+        'percent' => 1,
+        'amount' => 100,
+    ]);
+
+    postJson("api/v1/invoices/{$invoice->id}/fbr/submit")
+        ->assertCreated()
+        ->assertJsonPath('data.status', 'SUBMITTED');
+
+    Http::assertSent(function ($request) {
+        $item = $request['items'][0];
+
+        return $request['scenarioId'] === 'SN028'
+            && $request['buyerRegistrationType'] === 'Registered'
+            && $item['saleType'] === 'Goods at Reduced Rate'
+            && $item['rate'] === '1%'
+            && $item['sroScheduleNo'] === 'EIGHTH SCHEDULE Table 1'
+            && $item['sroItemSerialNo'] === '70'
+            && $item['extraTax'] === ''
+            && $item['valueSalesExcludingST'] === 100.00
+            && $item['salesTaxApplicable'] === 1.00
+            && $item['totalValues'] === 101.00;
+    });
+});
+
+test('emits FBR item payload fields in the official template order', function () {
+    configureFbr([
+        'fbr.sandbox_scenario_id' => 'SN028',
+    ]);
+
+    Http::fake([
+        'gw.fbr.gov.pk/*' => Http::response(['invoiceNumber' => 'FBR-ORDER'], 200),
+    ]);
+
+    $customer = Customer::factory()->create([
+        'company_id' => $this->company->id,
+        'tax_id' => null,
+        'fbr_ntn' => '1000000000000',
+        'fbr_registration_type' => 'Registered',
+        'company_name' => 'End Consumer',
+    ]);
+
+    Address::factory()->create([
+        'company_id' => $this->company->id,
+        'customer_id' => $customer->id,
+        'type' => Address::BILLING_TYPE,
+        'state' => 'Sindh',
+        'city' => 'Karachi',
+        'address_street_1' => 'Main Road',
+    ]);
+
+    $invoice = Invoice::factory()->create([
+        'company_id' => $this->company->id,
+        'customer_id' => $customer->id,
+        'invoice_date' => '2026-08-05',
+        'invoice_number' => 'INV-ORDER',
+        'tax_per_item' => 'YES',
+        'discount_per_item' => 'NO',
+        'discount_type' => 'fixed',
+        'discount' => 0,
+        'discount_val' => 0,
+        'sub_total' => 10000,
+        'tax' => 100,
+        'total' => 10100,
+        'due_amount' => 10100,
+    ]);
+
+    $item = InvoiceItem::factory()->create([
+        'company_id' => $this->company->id,
+        'invoice_id' => $invoice->id,
+        'name' => 'Reduced rate item',
+        'quantity' => 1,
+        'price' => 10000,
+        'total' => 10000,
+        'tax' => 100,
+        'unit_name' => null,
+        'fbr_hs_code' => '0101.2100',
+        'fbr_uom' => 'Numbers, pieces, units',
+        'fbr_sale_type' => 'goods at reduced rate',
+        'fbr_sro_no' => null,
+        'fbr_sro_item_no' => '70',
+    ]);
+
+    $taxType = TaxType::factory()->create([
+        'company_id' => $this->company->id,
+        'percent' => 1,
+    ]);
+
+    Tax::factory()->create([
+        'company_id' => $this->company->id,
+        'invoice_item_id' => $item->id,
+        'tax_type_id' => $taxType->id,
+        'percent' => 1,
+        'amount' => 100,
+    ]);
+
+    postJson("api/v1/invoices/{$invoice->id}/fbr/submit")
+        ->assertCreated()
+        ->assertJsonPath('data.status', 'SUBMITTED');
+
+    Http::assertSent(function ($request) {
+        $payload = $request->data();
+        $item = $payload['items'][0];
+
+        $expectedOrder = [
+            'hsCode',
+            'productDescription',
+            'rate',
+            'uoM',
+            'quantity',
+            'totalValues',
+            'valueSalesExcludingST',
+            'fixedNotifiedValueOrRetailPrice',
+            'salesTaxApplicable',
+            'salesTaxWithheldAtSource',
+            'extraTax',
+            'furtherTax',
+            'sroScheduleNo',
+            'fedPayable',
+            'discount',
+            'saleType',
+            'sroItemSerialNo',
+        ];
+
+        $invoiceKeys = array_keys($payload);
+
+        return array_keys($item) === $expectedOrder
+            && strpos(implode(',', $invoiceKeys), 'scenarioId') < strpos(implode(',', $invoiceKeys), 'items')
+            && $item['extraTax'] === ''
+            && $item['saleType'] === 'Goods at Reduced Rate'
+            && $item['sroScheduleNo'] === 'EIGHTH SCHEDULE Table 1'
+            && $item['sroItemSerialNo'] === '70';
+    });
+});
+
 function configureFbr(array $overrides = []): void
 {
     config([

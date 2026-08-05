@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import groupBy from 'lodash/groupBy'
 import { bootstrapService } from '@/scripts/api/services/bootstrap.service'
-import type { MenuItem, BootstrapResponse } from '@/scripts/api/services/bootstrap.service'
+import type { MenuItem, BootstrapResponse, FbrReference } from '@/scripts/api/services/bootstrap.service'
 import { settingService } from '@/scripts/api/services/setting.service'
 import type {
   DateFormat,
@@ -41,6 +41,11 @@ export const useGlobalStore = defineStore('global', () => {
     chat_enabled: false,
     text_generation_enabled: false,
   })
+  const fbrReference = ref<FbrReference>({
+    sale_types: [],
+    scenarios: {},
+    reduced_rate_hs: {},
+  })
   const isAppLoaded = ref<boolean>(false)
   const isSidebarOpen = ref<boolean>(false)
   const isSidebarCollapsed = ref<boolean>(localStore.getBoolean('sidebarCollapsed'))
@@ -77,6 +82,7 @@ export const useGlobalStore = defineStore('global', () => {
 
       config.value = response.config
       globalSettings.value = response.global_settings
+      fbrReference.value = response.fbr_reference ?? fbrReference.value
 
       // user store
       userStore.currentUser = response.current_user
@@ -303,6 +309,7 @@ export const useGlobalStore = defineStore('global', () => {
     settingMenu,
     userMenu,
     ai,
+    fbrReference,
     isAppLoaded,
     isSidebarOpen,
     isSidebarCollapsed,
