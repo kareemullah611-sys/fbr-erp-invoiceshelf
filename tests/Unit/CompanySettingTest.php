@@ -31,6 +31,14 @@ test('set settings', function () {
     $this->assertEquals($value, $response);
 });
 
+test('set settings stores null values as empty strings', function () {
+    $company = Company::factory()->create();
+
+    CompanySetting::setSettings(['fbr_sandbox_token' => null], $company->id);
+
+    $this->assertEquals('', CompanySetting::getSetting('fbr_sandbox_token', $company->id));
+});
+
 test('get settings', function () {
     $key = fake()->name;
 

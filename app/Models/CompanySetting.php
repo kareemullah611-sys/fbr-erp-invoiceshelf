@@ -29,6 +29,10 @@ class CompanySetting extends Model
     public static function setSettings(array $settings, mixed $company_id): void
     {
         foreach ($settings as $key => $value) {
+            if ($value === null) {
+                $value = '';
+            }
+
             self::updateOrCreate(
                 [
                     'option' => $key,
