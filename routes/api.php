@@ -32,6 +32,7 @@ use App\Http\Controllers\Company\Estimate\EstimateTemplatesController;
 use App\Http\Controllers\Company\ExchangeRate\ExchangeRateProviderController;
 use App\Http\Controllers\Company\Expense\ExpenseCategoriesController;
 use App\Http\Controllers\Company\Expense\ExpensesController;
+use App\Http\Controllers\Company\Fbr\FbrReferenceController;
 use App\Http\Controllers\Company\General\BootstrapController;
 use App\Http\Controllers\Company\General\ConfigController;
 use App\Http\Controllers\Company\General\FormatsController;
@@ -289,6 +290,9 @@ Route::prefix('/v1')->group(function () {
             Route::get('/invoices/{invoice}/fbr/readiness', [FbrInvoiceController::class, 'readiness']);
 
             Route::post('/invoices/{invoice}/fbr/submit', [FbrInvoiceController::class, 'submit']);
+
+            Route::get('/fbr/reference/hs-codes', [FbrReferenceController::class, 'searchHsCodes']);
+            Route::get('/fbr/reference/uoms', [FbrReferenceController::class, 'uoms']);
 
             Route::post('/invoices/delete', [InvoicesController::class, 'delete']);
 

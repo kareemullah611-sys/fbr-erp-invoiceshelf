@@ -45,6 +45,8 @@ export const API = {
   INVOICES: '/api/v1/invoices',
   INVOICES_DELETE: '/api/v1/invoices/delete',
   INVOICE_TEMPLATES: '/api/v1/invoices/templates',
+  FBR_REFERENCE_HS_CODES: '/api/v1/fbr/reference/hs-codes',
+  FBR_REFERENCE_UOMS: '/api/v1/fbr/reference/uoms',
 
   // Recurring Invoices
   RECURRING_INVOICES: '/api/v1/recurring-invoices',

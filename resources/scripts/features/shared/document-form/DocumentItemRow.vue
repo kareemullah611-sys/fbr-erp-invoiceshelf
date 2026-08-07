@@ -192,12 +192,22 @@
                   label="FBR HS Code"
                   :error="v$.fbr_hs_code.$error && v$.fbr_hs_code.$errors[0].$message"
                 >
-                  <BaseInput
-                    v-model="fbrHsCode"
+                  <BaseMultiselect
+                    v-model="hsCodeSelect"
+                    :content-loading="loading || hsCodeLoading"
                     :invalid="v$.fbr_hs_code.$error"
-                    :content-loading="loading"
-                    placeholder="8311.1000"
-                    @input="v$.fbr_hs_code.$touch()"
+                    :options="searchHsCodes"
+                    value-prop="hs_code"
+                    track-by="hs_code"
+                    label="description"
+                    :filter-results="false"
+                    searchable
+                    :delay="500"
+                    preserve-search
+                    object
+                    :placeholder="'8311.1000'"
+                    @update:model-value="onSelectHsCode"
+                    @search-change="v$.fbr_hs_code.$touch()"
                   />
                 </BaseInputGroup>
 
@@ -205,12 +215,19 @@
                   label="FBR UOM"
                   :error="v$.fbr_uom.$error && v$.fbr_uom.$errors[0].$message"
                 >
-                  <BaseInput
+                  <BaseMultiselect
                     v-model="fbrUom"
+                    :options="uomOptions"
                     :invalid="v$.fbr_uom.$error"
                     :content-loading="loading"
-                    placeholder="Numbers, pieces, units"
-                    @input="v$.fbr_uom.$touch()"
+                    searchable
+                    :filter-results="true"
+                    :delay="300"
+                    can-deselect
+                    :placeholder="'Numbers, pieces, units'"
+                    @update:model-value="onSelectUom"
+                    @search-change="v$.fbr_uom.$touch()"
+                    @open="loadUomOptions"
                   />
                 </BaseInputGroup>
 
@@ -288,12 +305,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { required, between, maxLength, helpers, minValue } from '@vuelidate/validators'
 import useVuelidate from '@vuelidate/core'
 import { useCompanyStore } from '../../../stores/company.store'
 import { useGlobalStore } from '@/scripts/stores/global.store'
+import { fbrReferenceService } from '@/scripts/api/services/fbr-reference.service'
+import type { FbrHsCodeOption } from '@/scripts/api/services/fbr-reference.service'
 import DocumentItemRowTax from './DocumentItemRowTax.vue'
 import DragIcon from '@/scripts/components/icons/DragIcon.vue'
 import { generateClientId } from '../../../utils'
@@ -333,6 +352,30 @@ const emit = defineEmits<Emits>()
 const { t } = useI18n()
 const companyStore = useCompanyStore()
 const globalStore = useGlobalStore()
+
+const hsCodeSelect = ref<FbrHsCodeOption | null>(null)
+const hsCodeLoading = ref<boolean>(false)
+const uomOptions = ref<string[]>([])
+
+async function searchHsCodes(search: string): Promise<FbrHsCodeOption[]> {
+  hsCodeLoading.value = true
+  try {
+    return await fbrReferenceService.searchHsCodes(search)
+  } catch {
+    return []
+  } finally {
+    hsCodeLoading.value = false
+  }
+}
+
+async function loadUomOptions(): Promise<string[]> {
+  try {
+    uomOptions.value = await fbrReferenceService.getUoms()
+  } catch {
+    uomOptions.value = []
+  }
+  return uomOptions.value
+}
 
 const formData = computed<DocumentFormData>(() => {
   return props.store[props.storeProp] as DocumentFormData
@@ -684,6 +727,22 @@ function nullableMinorAmount(value: unknown): number | null {
   }
   const num = Number(value)
   return Number.isFinite(num) ? num : null
+}
+
+function onSelectHsCode(option: FbrHsCodeOption | null): void {
+  hsCodeSelect.value = option
+  props.store.$patch((state: Record<string, unknown>) => {
+    const form = state[props.storeProp] as DocumentFormData
+    form.items[props.index].fbr_hs_code = option ? option.hs_code : null
+    if (option?.uoms?.[0]) {
+      form.items[props.index].fbr_uom = option.uoms[0]
+    }
+  })
+  applyReducedRateAutoSelect(option?.hs_code ?? '')
+}
+
+function onSelectUom(value: string | null): void {
+  updateItemAttribute('fbr_uom', value?.trim() || null)
 }
 
 function applyReducedRateAutoSelect(hsCode: string): void {

@@ -5,6 +5,7 @@ namespace App\Services\Fbr;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 
 class FbrReferenceDataService
@@ -121,6 +122,44 @@ class FbrReferenceDataService
         }
 
         return config("fbr.{$environment}_token");
+    }
+
+    /**
+     * Load a previously imported reference dataset from storage.
+     *
+     * @return array{
+     *   generated_at: ?string,
+     *   hs_codes: array<string, string>,
+     *   hs_uoms: array<string, list<string>>,
+     *   uoms: array<int, array{uoM_ID: int, description: string}>,
+     * }
+     */
+    public function dataset(string $environment = 'sandbox'): array
+    {
+        $path = $this->datasetPath($environment);
+
+        if (! File::exists($path)) {
+            return [
+                'generated_at' => null,
+                'hs_codes' => [],
+                'hs_uoms' => [],
+                'uoms' => [],
+            ];
+        }
+
+        $decoded = json_decode((string) File::get($path), true);
+
+        return is_array($decoded) ? $decoded : [
+            'generated_at' => null,
+            'hs_codes' => [],
+            'hs_uoms' => [],
+            'uoms' => [],
+        ];
+    }
+
+    public function datasetPath(string $environment = 'sandbox'): string
+    {
+        return storage_path("app/fbr/reference-{$environment}.json");
     }
 
     private function get(string $token, string $path, array $query = []): Response
