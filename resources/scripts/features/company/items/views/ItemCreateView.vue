@@ -14,6 +14,9 @@ import { useTaxTypes } from '../use-tax-types'
 import { useCompanyStore } from '../../../../stores/company.store'
 import { useModalStore } from '../../../../stores/modal.store'
 import { useUserStore } from '../../../../stores/user.store'
+import { useGlobalStore } from '@/scripts/stores/global.store'
+import { fbrReferenceService } from '@/scripts/api/services/fbr-reference.service'
+import type { FbrHsCodeOption } from '@/scripts/api/services/fbr-reference.service'
 import ItemUnitModal from '@/scripts/features/company/settings/components/ItemUnitModal.vue'
 import type { TaxType } from '@/scripts/types/domain/tax'
 
@@ -36,10 +39,69 @@ const { taxTypes, fetchTaxTypes } = useTaxTypes()
 const modalStore = useModalStore()
 const companyStore = useCompanyStore()
 const userStore = useUserStore()
+const globalStore = useGlobalStore()
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+
+const hsCodeSelect = ref<FbrHsCodeOption | null>(null)
+const hsCodeLoading = ref<boolean>(false)
+const uomOptions = ref<string[]>([])
+const fbrLoading = ref<boolean>(false)
+
+const saleTypeOptions = computed(() =>
+  globalStore.fbrReference.sale_types.map((value) => ({ value, label: value })),
+)
+
+async function searchHsCodes(search: string): Promise<FbrHsCodeOption[]> {
+  hsCodeLoading.value = true
+  try {
+    return await fbrReferenceService.searchHsCodes(search)
+  } catch {
+    return []
+  } finally {
+    hsCodeLoading.value = false
+  }
+}
+
+async function loadUomOptions(): Promise<void> {
+  fbrLoading.value = true
+  try {
+    uomOptions.value = await fbrReferenceService.getUoms()
+  } catch {
+    uomOptions.value = []
+  } finally {
+    fbrLoading.value = false
+  }
+}
+
+function onSelectHsCode(option: FbrHsCodeOption | null): void {
+  hsCodeSelect.value = option
+  itemStore.currentItem.fbr_hs_code = option ? option.hs_code : null
+  if (option?.uoms?.[0]) {
+    itemStore.currentItem.fbr_uom = option.uoms[0].toUpperCase()
+  }
+  if (option) {
+    applyReducedRateAutoSelect(option.hs_code)
+  }
+}
+
+function onSelectUom(value: string | null): void {
+  itemStore.currentItem.fbr_uom = (value ?? '').trim().toUpperCase() || null
+}
+
+function onSelectSaleType(value: string | null): void {
+  itemStore.currentItem.fbr_sale_type = value?.trim() || null
+}
+
+function applyReducedRateAutoSelect(hsCode: string): void {
+  const entry = globalStore.fbrReference.reduced_rate_hs[hsCode]
+  if (!entry) return
+  itemStore.currentItem.fbr_sale_type = 'Goods at Reduced Rate'
+  itemStore.currentItem.fbr_sro_no = entry.sroScheduleNo
+  itemStore.currentItem.fbr_sro_item_no = entry.sroItemSerialNo
+}
 
 const isSaving = ref<boolean>(false)
 const taxPerItem = ref<string>(companyStore.selectedCompanySettings.tax_per_item || 'NO')
@@ -356,26 +418,48 @@ async function submitItem(): Promise<void> {
 
             <BaseInputGrid layout="one-column">
               <BaseInputGroup label="HS Code" :content-loading="isFetchingInitialData">
-                <BaseInput
-                  v-model="itemStore.currentItem.fbr_hs_code"
-                  :content-loading="isFetchingInitialData"
-                  name="fbr_hs_code"
+                <BaseMultiselect
+                  v-model="hsCodeSelect"
+                  :content-loading="isFetchingInitialData || hsCodeLoading"
+                  :options="searchHsCodes"
+                  value-prop="hs_code"
+                  track-by="hs_code"
+                  label="description"
+                  :filter-results="false"
+                  searchable
+                  :delay="500"
+                  preserve-search
+                  object
+                  :placeholder="'8311.1000'"
+                  @update:model-value="onSelectHsCode"
                 />
               </BaseInputGroup>
 
               <BaseInputGroup label="FBR UOM" :content-loading="isFetchingInitialData">
-                <BaseInput
+                <BaseMultiselect
                   v-model="itemStore.currentItem.fbr_uom"
-                  :content-loading="isFetchingInitialData"
-                  name="fbr_uom"
+                  :content-loading="isFetchingInitialData || fbrLoading"
+                  :options="uomOptions"
+                  searchable
+                  :filter-results="true"
+                  :delay="300"
+                  can-deselect
+                  :placeholder="'NUMBERS, PIECES, UNITS'"
+                  @update:model-value="onSelectUom"
+                  @open="loadUomOptions"
                 />
               </BaseInputGroup>
 
               <BaseInputGroup label="Sale Type" :content-loading="isFetchingInitialData">
-                <BaseInput
+                <BaseMultiselect
                   v-model="itemStore.currentItem.fbr_sale_type"
-                  :content-loading="isFetchingInitialData"
-                  name="fbr_sale_type"
+                  :options="saleTypeOptions"
+                  value-prop="value"
+                  label="label"
+                  track-by="label"
+                  :can-deselect="true"
+                  :placeholder="$t('invoices.item.select_sale_type')"
+                  @update:model-value="onSelectSaleType"
                 />
               </BaseInputGroup>
 

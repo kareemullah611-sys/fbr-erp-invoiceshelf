@@ -4,6 +4,9 @@ import { useI18n } from 'vue-i18n'
 import { useModalStore } from '../../../../stores/modal.store'
 import { useCompanyStore } from '../../../../stores/company.store'
 import { useUserStore } from '../../../../stores/user.store'
+import { useGlobalStore } from '@/scripts/stores/global.store'
+import { fbrReferenceService } from '@/scripts/api/services/fbr-reference.service'
+import type { FbrHsCodeOption } from '@/scripts/api/services/fbr-reference.service'
 import { useItemStore } from '../store'
 import { useTaxTypes } from '../use-tax-types'
 import ItemUnitModal from '@/scripts/features/company/settings/components/ItemUnitModal.vue'
@@ -29,6 +32,11 @@ interface ItemFormState {
   price: number
   unit_id: string | number | null
   taxes: TaxOption[]
+  fbr_hs_code: string | null
+  fbr_uom: string | null
+  fbr_sale_type: string | null
+  fbr_sro_no: string | null
+  fbr_sro_item_no: string | null
 }
 
 const ABILITIES = {
@@ -45,12 +53,71 @@ const modalStore = useModalStore()
 const itemStore = useItemStore()
 const companyStore = useCompanyStore()
 const userStore = useUserStore()
+const globalStore = useGlobalStore()
 const notificationStore = useNotificationStore()
 const { taxTypes, fetchTaxTypes } = useTaxTypes()
 
 const { t } = useI18n()
 const isLoading = ref<boolean>(false)
 const triedSubmit = ref<boolean>(false)
+const hsCodeSelect = ref<FbrHsCodeOption | null>(null)
+const hsCodeLoading = ref<boolean>(false)
+const uomOptions = ref<string[]>([])
+const fbrLoading = ref<boolean>(false)
+
+const saleTypeOptions = computed(() =>
+  globalStore.fbrReference.sale_types.map((value) => ({ value, label: value })),
+)
+
+async function searchHsCodes(search: string): Promise<FbrHsCodeOption[]> {
+  hsCodeLoading.value = true
+  try {
+    return await fbrReferenceService.searchHsCodes(search)
+  } catch {
+    return []
+  } finally {
+    hsCodeLoading.value = false
+  }
+}
+
+async function loadUomOptions(): Promise<void> {
+  fbrLoading.value = true
+  try {
+    uomOptions.value = await fbrReferenceService.getUoms()
+  } catch {
+    uomOptions.value = []
+  } finally {
+    fbrLoading.value = false
+  }
+}
+
+function onSelectHsCode(option: FbrHsCodeOption | null): void {
+  hsCodeSelect.value = option
+  form.fbr_hs_code = option ? option.hs_code : null
+  if (option?.uoms?.[0]) {
+    form.fbr_uom = option.uoms[0].toUpperCase()
+  }
+  if (option) {
+    applyReducedRateAutoSelect(option.hs_code)
+  }
+}
+
+function onSelectUom(value: string | null): void {
+  form.fbr_uom = (value ?? '').trim().toUpperCase() || null
+}
+
+function onSelectSaleType(value: string | null): void {
+  form.fbr_sale_type = value?.trim() || null
+}
+
+function applyReducedRateAutoSelect(hsCode: string): void {
+  const entry = globalStore.fbrReference.reduced_rate_hs[hsCode]
+  if (!entry) return
+  form.fbr_sale_type = 'Goods at Reduced Rate'
+  form.fbr_sro_no = entry.sroScheduleNo
+  form.fbr_sro_item_no = entry.sroItemSerialNo
+}
+
 const taxPerItemSetting = ref<string>(
   companyStore.selectedCompanySettings.tax_per_item || 'NO'
 )
@@ -70,6 +137,11 @@ const form = reactive<ItemFormState>({
   price: 0,
   unit_id: '',
   taxes: [],
+  fbr_hs_code: null,
+  fbr_uom: null,
+  fbr_sale_type: null,
+  fbr_sro_no: null,
+  fbr_sro_item_no: null,
 })
 
 const nameError = computed<string>(() => {
@@ -155,7 +227,13 @@ watch(modalActive, (active) => {
     price: 0,
     unit_id: '',
     taxes: [],
+    fbr_hs_code: null,
+    fbr_uom: null,
+    fbr_sale_type: null,
+    fbr_sro_no: null,
+    fbr_sro_item_no: null,
   })
+  hsCodeSelect.value = null
   triedSubmit.value = false
 })
 
@@ -183,6 +261,11 @@ async function submitItemData(): Promise<void> {
     description: form.description,
     price: form.price,
     unit_id: form.unit_id || null,
+    fbr_hs_code: form.fbr_hs_code,
+    fbr_uom: form.fbr_uom,
+    fbr_sale_type: form.fbr_sale_type,
+    fbr_sro_no: form.fbr_sro_no,
+    fbr_sro_item_no: form.fbr_sro_item_no,
     taxes: (form.taxes ?? []).map((tax) => ({
       tax_type_id: tax.id,
       amount:
@@ -332,6 +415,65 @@ function closeItemModal(): void {
                 :invalid="Boolean(triedSubmit && descriptionError)"
               />
             </BaseInputGroup>
+
+            <div class="border border-line-light rounded-md p-5">
+              <div class="mb-4">
+                <h3 class="text-lg font-semibold text-heading">
+                  FBR Digital Invoice Details
+                </h3>
+                <p class="text-sm text-muted">
+                  Used as defaults when this item is added to a sale invoice.
+                </p>
+              </div>
+
+              <BaseInputGrid layout="one-column">
+                <BaseInputGroup label="HS Code">
+                  <BaseMultiselect
+                    v-model="hsCodeSelect"
+                    :content-loading="hsCodeLoading"
+                    :options="searchHsCodes"
+                    value-prop="hs_code"
+                    track-by="hs_code"
+                    label="description"
+                    :filter-results="false"
+                    searchable
+                    :delay="500"
+                    preserve-search
+                    object
+                    :placeholder="'8311.1000'"
+                    @update:model-value="onSelectHsCode"
+                  />
+                </BaseInputGroup>
+
+                <BaseInputGroup label="FBR UOM">
+                  <BaseMultiselect
+                    v-model="form.fbr_uom"
+                    :content-loading="fbrLoading"
+                    :options="uomOptions"
+                    searchable
+                    :filter-results="true"
+                    :delay="300"
+                    can-deselect
+                    :placeholder="'NUMBERS, PIECES, UNITS'"
+                    @update:model-value="onSelectUom"
+                    @open="loadUomOptions"
+                  />
+                </BaseInputGroup>
+
+                <BaseInputGroup label="Sale Type">
+                  <BaseMultiselect
+                    v-model="form.fbr_sale_type"
+                    :options="saleTypeOptions"
+                    value-prop="value"
+                    label="label"
+                    track-by="label"
+                    :can-deselect="true"
+                    :placeholder="$t('invoices.item.select_sale_type')"
+                    @update:model-value="onSelectSaleType"
+                  />
+                </BaseInputGroup>
+              </BaseInputGrid>
+            </div>
           </BaseInputGrid>
         </div>
         <div
