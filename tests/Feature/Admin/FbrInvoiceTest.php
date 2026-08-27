@@ -182,6 +182,87 @@ test('calculates FBR item values from document level tax', function () {
     });
 });
 
+test('sends decimal product rates as FBR decimal numeric totals', function () {
+    configureFbr();
+
+    Http::fake([
+        'gw.fbr.gov.pk/*' => Http::response(['invoiceNumber' => 'FBR-DECIMAL'], 200),
+    ]);
+
+    $customer = Customer::factory()->create([
+        'company_id' => $this->company->id,
+        'fbr_ntn' => '1000000000000',
+        'fbr_registration_type' => 'Registered',
+        'company_name' => 'Buyer Pvt Ltd',
+    ]);
+
+    Address::factory()->create([
+        'company_id' => $this->company->id,
+        'customer_id' => $customer->id,
+        'type' => Address::BILLING_TYPE,
+        'state' => 'Punjab',
+        'city' => 'Lahore',
+        'address_street_1' => 'Main Road',
+    ]);
+
+    $invoice = Invoice::factory()->create([
+        'company_id' => $this->company->id,
+        'customer_id' => $customer->id,
+        'invoice_date' => '2026-08-27',
+        'invoice_number' => 'INV-DECIMAL',
+        'tax_per_item' => 'YES',
+        'discount_per_item' => 'NO',
+        'discount_type' => 'fixed',
+        'discount' => 0,
+        'discount_val' => 0,
+        'sub_total' => 310550,
+        'tax' => 55899,
+        'total' => 366449,
+        'due_amount' => 366449,
+    ]);
+
+    $item = InvoiceItem::factory()->create([
+        'company_id' => $this->company->id,
+        'invoice_id' => $invoice->id,
+        'name' => 'Welding electrodes',
+        'quantity' => 10,
+        'price' => 31055,
+        'total' => 310550,
+        'tax' => 55899,
+        'unit_name' => 'KG',
+        'fbr_hs_code' => '8311.1000',
+        'fbr_uom' => 'KG',
+        'fbr_sale_type' => 'Goods at standard rate (default)',
+    ]);
+
+    $taxType = TaxType::factory()->create([
+        'company_id' => $this->company->id,
+        'percent' => 18,
+    ]);
+
+    Tax::factory()->create([
+        'company_id' => $this->company->id,
+        'invoice_item_id' => $item->id,
+        'tax_type_id' => $taxType->id,
+        'percent' => 18,
+        'amount' => 55899,
+    ]);
+
+    postJson("api/v1/invoices/{$invoice->id}/fbr/submit")
+        ->assertCreated()
+        ->assertJsonPath('data.status', 'SUBMITTED');
+
+    Http::assertSent(function ($request) {
+        $item = $request['items'][0];
+
+        return $item['rate'] === '18%'
+            && $item['quantity'] === 10.0
+            && $item['valueSalesExcludingST'] === 3105.50
+            && $item['salesTaxApplicable'] === 558.99
+            && $item['totalValues'] === 3664.49;
+    });
+});
+
 test('checks invoice readiness before FBR submission', function () {
     configureFbr();
 

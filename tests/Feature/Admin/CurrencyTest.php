@@ -68,3 +68,12 @@ test('all seeded currencies are returned', function () {
 
     expect($currencies->count())->toBe(Currency::count());
 });
+
+test('pakistani rupee supports decimal product rates', function () {
+    $response = getJson('/api/v1/currencies')->assertOk();
+
+    $pkr = collect($response->json('data'))->firstWhere('code', 'PKR');
+
+    expect($pkr)->not->toBeNull()
+        ->and((int) $pkr['precision'])->toBe(2);
+});

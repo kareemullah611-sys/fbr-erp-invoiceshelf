@@ -446,7 +446,7 @@ class CurrenciesTableSeeder extends Seeder
                 'name' => 'Pakistani Rupee',
                 'code' => 'PKR',
                 'symbol' => 'Rs ',
-                'precision' => '0',
+                'precision' => '2',
                 'thousand_separator' => ',',
                 'decimal_separator' => '.',
             ],
