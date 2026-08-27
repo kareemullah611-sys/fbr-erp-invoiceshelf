@@ -83,14 +83,15 @@ test('returns unique uom descriptions', function () {
         ->assertJsonPath('data.1', 'KG');
 });
 
-test('returns empty dataset when reference file is missing', function () {
+test('returns fallback uoms when reference file is missing', function () {
     getJson('api/v1/fbr/reference/hs-codes')
         ->assertOk()
         ->assertJsonCount(0, 'data');
 
     getJson('api/v1/fbr/reference/uoms')
         ->assertOk()
-        ->assertJsonCount(0, 'data');
+        ->assertJsonPath('data.0', 'KG')
+        ->assertJsonPath('data.1', 'Numbers, pieces, units');
 });
 
 test('reads from production reference file for production companies', function () {

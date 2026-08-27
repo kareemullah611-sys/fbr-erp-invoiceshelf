@@ -60,6 +60,19 @@ class FbrReferenceController extends Controller
             ->values()
             ->all();
 
+        if ($uoms === []) {
+            $uoms = [
+                'KG',
+                'Numbers, pieces, units',
+                'Dozen',
+                'Liter',
+                'Meter',
+                'Square Meter',
+                'Cubic Meter',
+                'Metric Ton',
+            ];
+        }
+
         return response()->json([
             'data' => $uoms,
         ]);

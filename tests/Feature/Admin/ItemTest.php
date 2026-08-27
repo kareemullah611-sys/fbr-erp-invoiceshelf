@@ -149,6 +149,21 @@ test('delete multiple items', function () {
     }
 });
 
+test('delete unused item with default tax rows', function () {
+    $item = Item::factory()->create();
+    Tax::factory()->create([
+        'item_id' => $item->id,
+        'invoice_item_id' => null,
+        'estimate_item_id' => null,
+    ]);
+
+    postJson('/api/v1/items/delete', [
+        'ids' => [$item->id],
+    ])->assertOk();
+
+    $this->assertModelMissing($item);
+});
+
 test('search items', function () {
     $filters = [
         'page' => 1,
