@@ -503,7 +503,17 @@
     "marked_as_sent_message": "Invoice marked as sent successfully",
     "something_went_wrong": "something went wrong",
     "invalid_due_amount_message": "Total Invoice amount cannot be less than total paid amount for this Invoice. Please update the invoice or delete the associated payments to continue.",
-    "mark_as_default_invoice_template_description": "If enabled, the selected template will be automatically selected for new invoices."
+    "mark_as_default_invoice_template_description": "If enabled, the selected template will be automatically selected for new invoices.",
+    "fbr_validate": "Validate FBR",
+    "fbr_validating": "Validating with FBR...",
+    "fbr_submit": "Submit to FBR",
+    "fbr_submitting": "Submitting to FBR...",
+    "fbr_submit_confirm_title": "Submit invoice to FBR?",
+    "fbr_submit_confirm_message": "This will run a readiness check first, then send this invoice data to the configured FBR environment.",
+    "fbr_not_ready_title": "FBR invoice is not ready",
+    "fbr_status": "FBR Status",
+    "fbr_invoice_number": "FBR Invoice No",
+    "fbr_validated_message": "This invoice passed FBR validation and is ready for final submission."
   },
   "recurring_invoices": {
     "title": "Recurring Invoices",

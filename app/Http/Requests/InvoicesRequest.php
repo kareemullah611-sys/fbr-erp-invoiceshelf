@@ -170,7 +170,7 @@ class InvoicesRequest extends FormRequest
         $exchange_rate = $company_currency != $current_currency ? $this->exchange_rate : 1;
         $currency = Customer::find($this->customer_id)->currency_id;
 
-        $tax_per_item = CompanySetting::getSetting('tax_per_item', $this->header('company')) ?? 'NO ';
+        $tax_per_item = CompanySetting::getSetting('tax_per_item', $this->header('company')) ?? 'NO';
         $discount_per_item = CompanySetting::getSetting('discount_per_item', $this->header('company')) ?? 'NO';
 
         // Recompute the document totals server-side from the line items so a

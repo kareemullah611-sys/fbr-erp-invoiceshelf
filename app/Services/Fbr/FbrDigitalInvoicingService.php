@@ -561,7 +561,11 @@ class FbrDigitalInvoicingService
     {
         $amount = $this->optionalMinorAmount($amount);
 
-        return $amount === null ? null : $this->money($amount);
+        if ($amount === null) {
+            return null;
+        }
+
+        return $this->money($amount);
     }
 
     private function requiredMoney(int|float|string|null $amount): float

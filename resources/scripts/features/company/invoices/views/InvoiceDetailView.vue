@@ -29,7 +29,7 @@
           class="text-sm mr-3"
           @click="onValidateWithFbr"
         >
-          {{ isValidatingWithFbr ? 'Validating with FBR...' : 'Validate FBR' }}
+          {{ isValidatingWithFbr ? $t('invoices.fbr_validating') : $t('invoices.fbr_validate') }}
         </BaseButton>
 
         <BaseButton
@@ -39,7 +39,7 @@
           class="text-sm mr-3"
           @click="onSubmitToFbr"
         >
-          {{ isSubmittingToFbr ? 'Submitting to FBR...' : 'Submit to FBR' }}
+          {{ isSubmittingToFbr ? $t('invoices.fbr_submitting') : $t('invoices.fbr_submit') }}
         </BaseButton>
 
         <!-- Record Payment -->
@@ -223,9 +223,9 @@
       v-if="invoiceData.fbr_submission"
       class="mb-4 rounded-lg border border-line-default bg-surface px-4 py-3 text-sm text-body"
     >
-      <div class="font-medium text-heading">FBR Status: {{ invoiceData.fbr_submission.status }}</div>
+      <div class="font-medium text-heading">{{ $t('invoices.fbr_status') }}: {{ invoiceData.fbr_submission.status }}</div>
       <div v-if="invoiceData.fbr_submission.fbr_invoice_number">
-        FBR Invoice No: {{ invoiceData.fbr_submission.fbr_invoice_number }}
+        {{ $t('invoices.fbr_invoice_number') }}: {{ invoiceData.fbr_submission.fbr_invoice_number }}
       </div>
       <div v-if="invoiceData.fbr_submission.error_message" class="text-red-500">
         {{ invoiceData.fbr_submission.error_message }}
@@ -234,7 +234,7 @@
         v-if="invoiceData.fbr_submission.status === 'VALIDATED'"
         class="mt-1 text-green-600"
       >
-        This invoice passed FBR validation and is ready for final submission.
+        {{ $t('invoices.fbr_validated_message') }}
       </div>
     </div>
 
@@ -400,8 +400,8 @@ function onSendInvoice(): void {
 
 function onSubmitToFbr(): void {
   dialogStore.openDialog({
-    title: 'Submit invoice to FBR?',
-    message: 'This will run a readiness check first, then send this invoice data to the configured FBR environment.',
+    title: $t('invoices.fbr_submit_confirm_title'),
+    message: $t('invoices.fbr_submit_confirm_message'),
     yesLabel: t('general.ok'),
     noLabel: t('general.cancel'),
     variant: 'primary',
@@ -418,7 +418,7 @@ function onSubmitToFbr(): void {
 
       if (!readiness.can_submit) {
         await dialogStore.openDialog({
-          title: 'FBR invoice is not ready',
+          title: $t('invoices.fbr_not_ready_title'),
           message: readiness.missing.join('\n'),
           yesLabel: t('general.ok'),
           variant: 'danger',
